@@ -30,6 +30,7 @@ Scope: one group; verified Firebase email and allowlist; leader-managed tasks wi
 - User selected source and setup instructions first; Firebase/Supabase projects do not yet exist.
 - Ruling: retain a single-group transactional write lock for correctness under concurrent mutations; throughput ceiling documented in API.md.
 - Ruling: signed builds without cloud credentials are installation/configuration previews, not a production release. Live-cloud acceptance and user study are pending, not passed.
+- First GitHub CI run passed backend checks but failed before Android build because setup-android defaulted to the removed SDK `tools` package. CI now requests platform-tools, platform 35 and build-tools 35.0.0 explicitly.
 
 ## Independent review (whole branch)
 Reviewer found no critical issues and four important issues; all four were accepted and fixed:
