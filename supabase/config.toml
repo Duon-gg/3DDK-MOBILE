@@ -1,0 +1,5 @@
+project_id = "3ddk-tasks"
+[functions.api]
+verify_jwt = false
+[functions.dispatch]
+verify_jwt = false

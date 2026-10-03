@@ -1,0 +1,17 @@
+.gradle/
+**/build/
+local.properties
+app/google-services.json
+*.jks
+*.keystore
+keystore.properties
+.env
+.env.*
+!.env.example
+node_modules/
+.tools/
+.local/
+.idea/
+*.log
+supabase/.temp/
+supabase/.branches/
