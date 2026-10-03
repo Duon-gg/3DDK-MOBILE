@@ -88,3 +88,16 @@ Thu hồi lời mời không vô hiệu hóa thành viên đã tham gia; dùng N
 Ngừng quyền chỉ áp dụng khi thiết bị kết nối lại; cache offline không thể bị server xóa từ xa tức thì.
 Khi đăng xuất, app xóa cache/nháp và cố gắng hủy token push. Push tồn đọng chỉ chứa nội dung chung, không chứa nội dung công việc.
 Khi token hết hiệu lực, nháp được giữ theo UID để khôi phục sau khi đăng nhập lại; dữ liệu nhóm không hiển thị cho tới khi xác thực lại thành công.
+
+## Xử lý lỗi thường gặp
+
+| Hiện tượng | Kiểm tra |
+|---|---|
+| Màn hình chưa cấu hình | Cả năm giá trị Firebase/Supabase trong local.properties; dựng lại APK sau khi sửa |
+| UNAUTHORIZED | Firebase Project ID của app và Edge giống nhau; giờ thiết bị; middleware nhận Firebase ID token, không phải Supabase token |
+| UNVERIFIED | Bấm link xác minh email rồi chọn kiểm tra lại trong app |
+| NOT_INVITED | Email lời mời khớp email Firebase đã xác minh; nhóm trưởng phải được seed bằng UID thật |
+| FORBIDDEN | Vai trò, active và người đại diện hiện tại; không đổi quyền bằng dữ liệu client |
+| Push không tới | Quyền thông báo, Play Services, thiết bị còn đăng nhập, service account, FCM API, cron và outbox attempts |
+| Lỗi build JDK/SDK | JDK 21, SDK platform 35 và Build Tools 35.0.0; dùng Gradle Wrapper của repo |
+| INSTALL_FAILED_UPDATE_INCOMPATIBLE | Khóa ký khác bản đã cài; dùng lại khóa cũ để giữ dữ liệu khi nâng cấp |
