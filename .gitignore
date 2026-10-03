@@ -11,6 +11,7 @@ keystore.properties
 node_modules/
 .tools/
 .local/
+artifacts/
 .idea/
 *.log
 supabase/.temp/

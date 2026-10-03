@@ -1,0 +1,89 @@
+# Cấu hình và chạy 3DDK Tasks
+
+## Yêu cầu
+Android Studio, JDK 21, SDK 35, Node.js 24. Repo có Gradle Wrapper 8.13; không cần cài Gradle toàn hệ thống.
+Android: minSdk 24, targetSdk 34, compileSdk 35, applicationId `com.threeddk.tasks`.
+Dùng máy Android có Google Play Services cho Firebase Cloud Messaging.
+
+## 1. Tạo Firebase miễn phí
+1. Tạo Firebase project trên Spark, bật Authentication → Email/Password. Không cần bật Analytics.
+2. Đăng ký ứng dụng Android với package `com.threeddk.tasks`.
+3. Từ cấu hình Firebase Android, lấy API key, App ID, Project ID và Project number (Sender ID).
+4. Sao chép `local.properties.example` thành `local.properties`, điền bốn giá trị Firebase tương ứng. Không commit file này.
+5. Bật Cloud Messaging API v1 trong project. Tạo service account key dùng phía server, lưu ở nơi riêng. Không đưa vào Android hoặc Git.
+6. Khi đã có APK kết nối cấu hình, nhóm trưởng đăng ký, xác minh email. Ghi Firebase UID trong Authentication → Users để seed database ở bước 3.
+7. Kiểm tra template email xác minh/reset và authorized domains trong Firebase Console. App dùng email action mặc định của Firebase.
+
+Firebase tự giữ phiên đăng nhập. EncryptedSharedPreferences chỉ lưu email khi người dùng chọn nhớ email; không lưu mật khẩu.
+
+## 2. Tạo Supabase Free
+Tạo project Free; giữ database password ngoài repository. Sao chép Project URL vào `SUPABASE_URL` trong local.properties.
+Chạy migration `supabase/migrations/202610030001_core.sql` một lần trong SQL Editor.
+Có thể dùng Supabase CLI với `supabase link` và `supabase db push` thay cho SQL Editor. Không chạy lại migration bằng tay nếu đã áp dụng.
+
+Các bảng bật RLS và không cấp quyền trực tiếp cho anon/authenticated. Android chỉ gọi Edge API.
+
+## 3. Seed nhóm trưởng
+Sau khi đăng ký và xác minh tài khoản Firebase, dùng SQL Editor chạy:
+```sql
+insert into public.members(uid,email,display_name,role)
+values ('UID_TU_FIREBASE','email-da-xac-minh@example.com','Tên nhóm trưởng','LEADER');
+```
+Thay ba giá trị bằng tài khoản thật của nhóm trưởng. Chỉ một LEADER được phép tồn tại.
+Không tạo endpoint tự nâng quyền. Người dùng khác vào app nhờ email có trong bảng invites do nhóm trưởng quản lý.
+
+## 4. Deploy Edge Functions
+Cài/chạy Supabase CLI, đăng nhập tài khoản của nhóm và link đúng project.
+```sh
+supabase login
+supabase link --project-ref YOUR_PROJECT_REF
+supabase functions deploy api
+supabase functions deploy dispatch
+```
+Trong Edge Functions → Secrets đặt:
+- `FIREBASE_PROJECT_ID`: project Firebase vừa tạo.
+- `FIREBASE_SERVICE_ACCOUNT`: toàn bộ JSON service account dưới dạng một chuỗi JSON.
+- `DISPATCH_SECRET`: chuỗi ngẫu nhiên ít nhất 32 byte, giữ bí mật.
+
+SUPABASE_URL và SUPABASE_SERVICE_ROLE_KEY được môi trường hosted cung cấp.
+Cả hai function có `verify_jwt=false`: API **tự xác minh Firebase JWT** bằng jose, dispatch **tự xác minh secret**. Không xóa middleware này.
+API kiểm tra issuer, audience, chữ ký RS256, thời hạn, auth_time và email_verified, rồi lấy UID từ token.
+
+## 5. Lập lịch push
+Trong Supabase Vault tạo hai secret: `project_url` và `dispatch_secret`; giá trị phải khớp Project URL và DISPATCH_SECRET.
+Chạy `supabase/setup-scheduler.sql` trong SQL Editor. Script thiết lập cron mỗi phút và thay thế job cùng tên nếu có.
+Không gõ secret vào file SQL đã commit. Kiểm tra `cron.job_run_details` và Edge logs sau khi chạy.
+
+Push dùng outbox có lease, retry tối đa 8 lần, backoff tối đa một giờ. Theo dõi bản ghi chưa sent và attempts=8.
+Nhắc hạn dựa theo UTC server; UI nhập/hiển thị giờ Việt Nam. Nếu việc được tạo khi còn dưới một giờ, chỉ gửi nhắc 1 giờ.
+FCM là best effort: không bảo đảm đúng giây, và force-stop ứng dụng ở Settings có thể ngăn nhận push cho tới khi mở lại.
+
+## 6. Dựng Android
+```powershell
+$env:JAVA_HOME='DUONG_DAN_JDK_21'
+.\gradlew.bat :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
+```
+Cài APK trong `app/build/outputs/apk/debug`.
+Không có cấu hình cloud, app hiển thị màn hình hướng dẫn cấu hình; đây không phải chế độ giả lập nghiệp vụ.
+
+## 7. Ký bản release
+Tạo keystore bằng keytool, lưu ngoài repo. Tạo file local `keystore.properties`:
+```properties
+storeFile=C:/duong-dan-rieng/release.p12
+storePassword=MAT_KHAU_RIENG
+keyAlias=3ddk-tasks
+keyPassword=MAT_KHAU_RIENG
+```
+```powershell
+.\gradlew.bat :app:assembleRelease :app:bundleRelease
+```
+APK: `app/build/outputs/apk/release`. AAB: `app/build/outputs/bundle/release`.
+Nếu không có keystore.properties, release chưa được ký; không phát hành như bản cài đã ký.
+Giữ keystore và mật khẩu an toàn để ký mọi bản cập nhật. Tăng versionCode trước khi phát hành bản tiếp theo.
+
+## Quyền và dữ liệu riêng tư
+Liên kết kết quả mở bên ngoài app; người nộp tự bảo đảm quyền truy cập của link.
+Thu hồi lời mời không vô hiệu hóa thành viên đã tham gia; dùng Ngừng quyền trong màn hình Nhóm.
+Ngừng quyền chỉ áp dụng khi thiết bị kết nối lại; cache offline không thể bị server xóa từ xa tức thì.
+Khi đăng xuất, app xóa cache/nháp và cố gắng hủy token push. Push tồn đọng chỉ chứa nội dung chung, không chứa nội dung công việc.
+

@@ -1,0 +1,8 @@
+<resources>
+ <style name="Theme.Tasks" parent="Theme.Material3.Light.NoActionBar">
+  <item name="colorPrimary">#2563EB</item><item name="colorOnPrimary">#FFFFFF</item>
+  <item name="colorSecondary">#475569</item><item name="android:fontFamily">sans</item>
+  <item name="android:windowLightStatusBar">true</item><item name="android:statusBarColor">#F8FAFC</item>
+  <item name="android:navigationBarColor">#FFFFFF</item><item name="android:windowBackground">#F8FAFC</item>
+ </style>
+</resources>
