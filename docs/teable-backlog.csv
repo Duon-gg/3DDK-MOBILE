@@ -1,0 +1,10 @@
+ID,Feature,Owner,Status,Acceptance,DependsOn,PR,Evidence
+DDK-01,Tài khoản và lời mời,A,Review,Đúng quyền và email xác minh,,,
+DDK-02,Quản lý công việc,B,Review,Nhiều người và một đại diện,DDK-01,,
+DDK-03,Nộp duyệt và nháp,C,Review,Giữ nháp và không nộp trùng,DDK-02,,
+DDK-04,Push và deadline,C,Review,Đúng người nhận và đúng sự kiện,DDK-03,,
+DDK-05,Cấu hình cloud thật,A,Ready,API và Auth hoạt động trên project nhóm,DDK-01,,
+DDK-06,Nghiệm thu hai thiết bị,B,Backlog,Chạy vòng công việc và offline,DDK-05,,
+DDK-07,Thử sinh viên,C,Backlog,Ghi phản hồi từ 3 đến 5 sinh viên,DDK-06,,
+DDK-08,Phát hành bản đã nghiệm thu,A,Backlog,Release ký và hướng dẫn tái tạo,DDK-07,,
+

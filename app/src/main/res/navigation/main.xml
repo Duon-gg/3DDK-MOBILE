@@ -1,0 +1,9 @@
+<navigation xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:id="@+id/main_graph" app:startDestination="@id/auth">
+ <fragment android:id="@+id/auth" android:name="com.threeddk.tasks.ui.AuthFragment" android:label="3DDK Tasks"/>
+ <fragment android:id="@+id/tasks" android:name="com.threeddk.tasks.ui.OverviewFragment" android:label="Công việc"><argument android:name="kind" app:argType="string" android:defaultValue="tasks"/></fragment>
+ <fragment android:id="@+id/notifications" android:name="com.threeddk.tasks.ui.OverviewFragment" android:label="Thông báo"><argument android:name="kind" app:argType="string" android:defaultValue="notifications"/></fragment>
+ <fragment android:id="@+id/team" android:name="com.threeddk.tasks.ui.OverviewFragment" android:label="Nhóm"><argument android:name="kind" app:argType="string" android:defaultValue="members"/></fragment>
+ <fragment android:id="@+id/profile" android:name="com.threeddk.tasks.ui.ProfileFragment" android:label="Cá nhân"/>
+ <fragment android:id="@+id/detail" android:name="com.threeddk.tasks.ui.DetailFragment" android:label="Chi tiết công việc"><argument android:name="taskId" app:argType="string"/></fragment>
+ <fragment android:id="@+id/editor" android:name="com.threeddk.tasks.ui.EditorFragment" android:label="Soạn công việc"><argument android:name="taskId" app:argType="string" android:defaultValue=""/></fragment>
+</navigation>

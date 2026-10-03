@@ -1,0 +1,8 @@
+# Copy to local.properties. Use forward slashes on Windows.
+# sdk.dir=C:/Users/your-user/AppData/Local/Android/Sdk
+FIREBASE_API_KEY=
+FIREBASE_APP_ID=
+FIREBASE_PROJECT_ID=
+FIREBASE_SENDER_ID=
+SUPABASE_URL=
+
