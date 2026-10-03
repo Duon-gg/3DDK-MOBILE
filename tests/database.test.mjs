@@ -96,3 +96,11 @@ test('client database roles have no direct data or privileged function access',a
  const r=await db.query("select has_table_privilege('anon','public.tasks','SELECT') as readable, has_function_privilege('authenticated','public.api_dispatch(text,text,text,text,text,jsonb)','EXECUTE') as callable");
  assert.deepEqual(r.rows[0],{readable:false,callable:false});
 });
+test('worker only leases the next notification, leaving the tail attempts untouched',async()=>{
+ await db.query('update public.notification_outbox set sent_at=now()');
+ await create();
+ const claimed=await db.query('select * from public.claim_notifications()');
+ assert.equal(claimed.rows.length,1);
+ const tail=await db.query('select attempts from public.notification_outbox where sent_at is null and notification_id<>$1',[claimed.rows[0].notification_id]);
+ assert.ok(tail.rows.length>0);assert.ok(tail.rows.every(x=>x.attempts===0));
+});

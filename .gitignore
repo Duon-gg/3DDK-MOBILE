@@ -1,4 +1,6 @@
 .gradle/
+.kotlin/
+*.p12
 **/build/
 local.properties
 app/google-services.json

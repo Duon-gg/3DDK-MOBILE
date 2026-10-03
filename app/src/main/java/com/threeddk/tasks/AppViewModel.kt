@@ -37,6 +37,7 @@ class AppViewModel(app:Application):AndroidViewModel(app) {
   if(user==null){session.value="AUTH";return}
   if(!user.isEmailVerified){session.value="VERIFY";return}
   observer?.cancel()
+  rows.value=emptyList();drafts.value=emptyList()
   observer=viewModelScope.launch{
    launch{repo.observe(user.uid).collect{rows.value=it}}
    launch{repo.dao.observeDrafts(user.uid).collect{drafts.value=it}}
@@ -51,7 +52,7 @@ class AppViewModel(app:Application):AndroidViewModel(app) {
   } catch(e:Exception){
    syncNote.value="Đang xem dữ liệu đã lưu • Chưa đồng bộ được"
    if(e is ApiException && e.code in listOf("NOT_INVITED","FORBIDDEN","UNVERIFIED","UNAUTHORIZED")) {
-    rows.value=emptyList();session.value=if(e.code=="UNAUTHORIZED")"AUTH" else "BLOCKED"
+    observer?.cancel();rows.value=emptyList();drafts.value=emptyList();session.value=if(e.code=="UNAUTHORIZED")"AUTH" else "BLOCKED"
    }
    throw e
   }

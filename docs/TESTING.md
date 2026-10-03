@@ -27,6 +27,9 @@ Android unit test dùng MockWebServer kiểm tra Authorization và replay khi 40
 8. Kiểm tra push khi foreground/background, nhấn để mở đúng task, từ chối quyền, đổi deadline và hoàn thành trước nhắc hạn.
 9. Tắt quyền thành viên sau khi đã phân công lại; lần refresh tiếp theo phải chặn quyền và xóa cache.
 10. Cài release rồi nâng cấp bằng APK cùng khóa ký và versionCode cao hơn; database/nháp phải còn.
+11. Mở màn hình sửa trên A; B sửa cùng việc; A tải cache mới. A phải thấy lựa chọn xử lý xung đột, không tự ghi đè.
+12. Mô phỏng tạo việc thành công nhưng mất phản hồi, xoay màn hình rồi bấm Lưu lại với cùng nội dung: chỉ một task. Đổi mức ưu tiên phải tạo requestId mới.
+13. Lưu nháp, làm phiên đăng nhập hết hiệu lực rồi đăng nhập lại cùng UID: nháp còn. Đổi sang UID khác không đọc được nháp cũ.
 
 Nhắc hạn kiểm tra bằng deadline ngắn trên project thử nghiệm; không cần chờ 24 giờ.
 Đo bằng timestamp server, ghi giờ gửi/nhận và quyền thông báo. Không coi push không đến vì force-stop là lỗi lịch cron.
@@ -39,4 +42,3 @@ LeakCanary chỉ có ở debug; lặp mở/đóng từng Fragment và xoay màn 
 ## Trạng thái bằng chứng
 Xem docs/IMPLEMENTATION.md để biết những kiểm tra đã chạy thực tế.
 Firebase/Supabase chưa được cấp: nghiệm thu cloud, FCM thật, hai tài khoản thật và thử sinh viên chưa được thực hiện.
-

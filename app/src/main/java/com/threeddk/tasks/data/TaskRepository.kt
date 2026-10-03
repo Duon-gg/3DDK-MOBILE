@@ -50,7 +50,7 @@ class TaskRepository(private val context:Context) {
     }
    }
   } catch(e:ApiException) {
-   if(e.code in listOf("NOT_INVITED","FORBIDDEN","UNVERIFIED","UNAUTHORIZED")){dao.clearCache();dao.clearDrafts()}
+   db.handleAccessFailure(e.code)
    throw e
   }
  }
@@ -100,4 +100,3 @@ class TaskRepository(private val context:Context) {
   auth?.signOut();db.withTransaction{dao.clearCache();dao.clearDrafts()}
  }
 }
-

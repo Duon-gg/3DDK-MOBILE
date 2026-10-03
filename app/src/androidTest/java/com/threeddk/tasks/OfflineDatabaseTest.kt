@@ -11,6 +11,17 @@ import org.junit.Test
 import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class OfflineDatabaseTest {
+ @Test fun expiredAuthenticationRetainsDraftUntilExplicitRevocation()=runBlocking {
+  val db=Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(),TaskDatabase::class.java).build()
+  try {
+   val draft=Draft("alice","task","Chưa gửi")
+   db.dao().save(draft);db.dao().put(listOf(CacheEntry("alice","me","alice","{}")))
+   db.handleAccessFailure("UNAUTHORIZED")
+   assertEquals(draft,db.dao().draft("alice","task"));assertNull(db.dao().entry("alice","me","alice"))
+   db.handleAccessFailure("FORBIDDEN")
+   assertNull(db.dao().draft("alice","task"))
+  } finally{db.close()}
+ }
  @Test fun draftsSurviveReopenAndAreIsolatedByAccount()=runBlocking {
   val context=ApplicationProvider.getApplicationContext<android.content.Context>()
   val name="test-${java.util.UUID.randomUUID()}.db"

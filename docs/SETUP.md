@@ -55,6 +55,7 @@ Chạy `supabase/setup-scheduler.sql` trong SQL Editor. Script thiết lập cro
 Không gõ secret vào file SQL đã commit. Kiểm tra `cron.job_run_details` và Edge logs sau khi chạy.
 
 Push dùng outbox có lease, retry tối đa 8 lần, backoff tối đa một giờ. Theo dõi bản ghi chưa sent và attempts=8.
+Worker chỉ nhận một thông báo trước mỗi lần gửi; các thiết bị của người nhận được gửi đồng thời với timeout 10 giây. Một lượt xử lý tối đa 20 thông báo và ngừng nhận thêm sau 45 giây; phần còn lại được xử lý ở lượt sau.
 Nhắc hạn dựa theo UTC server; UI nhập/hiển thị giờ Việt Nam. Nếu việc được tạo khi còn dưới một giờ, chỉ gửi nhắc 1 giờ.
 FCM là best effort: không bảo đảm đúng giây, và force-stop ứng dụng ở Settings có thể ngăn nhận push cho tới khi mở lại.
 
@@ -86,4 +87,4 @@ Liên kết kết quả mở bên ngoài app; người nộp tự bảo đảm q
 Thu hồi lời mời không vô hiệu hóa thành viên đã tham gia; dùng Ngừng quyền trong màn hình Nhóm.
 Ngừng quyền chỉ áp dụng khi thiết bị kết nối lại; cache offline không thể bị server xóa từ xa tức thì.
 Khi đăng xuất, app xóa cache/nháp và cố gắng hủy token push. Push tồn đọng chỉ chứa nội dung chung, không chứa nội dung công việc.
-
+Khi token hết hiệu lực, nháp được giữ theo UID để khôi phục sau khi đăng nhập lại; dữ liệu nhóm không hiển thị cho tới khi xác thực lại thành công.

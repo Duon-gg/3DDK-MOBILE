@@ -217,7 +217,7 @@ begin
  where o.notification_id=n.id and n.task_id=t.id and n.uid=m.uid and o.sent_at is null
  and (t.archived_at is not null or not m.active or (n.due_at is not null and (t.status='DONE' or n.due_at<>t.due_at or t.due_at<now() or not exists(select 1 from public.task_assignees a where a.task_id=t.id and a.uid=m.uid))));
  return query with picked as (
-  select o.notification_id from public.notification_outbox o where o.sent_at is null and o.next_attempt_at<=now() and o.attempts<8 order by o.next_attempt_at limit 50 for update skip locked
+  select o.notification_id from public.notification_outbox o where o.sent_at is null and o.next_attempt_at<=now() and o.attempts<8 order by o.next_attempt_at limit 1 for update skip locked
  ), claimed as (
   update public.notification_outbox o set claim_token=gen_random_uuid(),attempts=attempts+1,next_attempt_at=now()+interval '2 minutes' from picked p where o.notification_id=p.notification_id returning o.*
  ) select n.id,n.task_id,n.uid,n.kind,c.claim_token,coalesce((select jsonb_agg(d.token) from public.device_tokens d where d.uid=n.uid),'[]') from claimed c join public.notifications n on n.id=c.notification_id;

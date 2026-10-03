@@ -22,6 +22,12 @@ data class Draft(val owner:String,val taskId:String,val description:String="",va
 @Database(entities=[CacheEntry::class,Draft::class],version=1,exportSchema=true)
 abstract class TaskDatabase:RoomDatabase() {
  abstract fun dao():TaskDao
+ suspend fun handleAccessFailure(code:String){
+  if(code in listOf("NOT_INVITED","FORBIDDEN","UNVERIFIED","UNAUTHORIZED"))withTransaction{
+   dao().clearCache()
+   if(code!="UNAUTHORIZED")dao().clearDrafts()
+  }
+ }
  companion object {
   @Volatile private var instance:TaskDatabase?=null
   fun get(context:Context)=instance?:synchronized(this){instance?:Room.databaseBuilder(context.applicationContext,TaskDatabase::class.java,"3ddk-tasks.db").build().also{instance=it}}

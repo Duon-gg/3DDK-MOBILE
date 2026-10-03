@@ -21,6 +21,7 @@ Khi chưa có cấu hình Firebase/Supabase, app hiển thị hướng dẫn c�
 - [Vận hành, backup và quy trình PR](docs/OPERATIONS.md)
 - [Backlog nhập vào Teable](docs/teable-backlog.csv)
 - [Nhật ký triển khai và bằng chứng kiểm tra](docs/IMPLEMENTATION.md)
+- [Bộ bàn giao, checksum và phần nghiệm thu còn lại](docs/DELIVERY.md)
 
 ## Kiểm tra
 
