@@ -22,14 +22,14 @@ class MainActivity:AppCompatActivity(){
   ViewCompat.setOnApplyWindowInsetsListener(binding.root){view,insets->val bars=insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.ime());view.updatePadding(top=bars.top,bottom=bars.bottom);insets}
   setSupportActionBar(binding.toolbar)
   nav=(supportFragmentManager.findFragmentById(R.id.nav_host) as NavHostFragment).navController
-  setupActionBarWithNavController(nav,AppBarConfiguration(setOf(R.id.auth,R.id.tasks,R.id.notifications,R.id.team,R.id.profile)))
+  setupActionBarWithNavController(nav,AppBarConfiguration(setOf(R.id.auth,R.id.workspaces,R.id.invitations,R.id.profile)))
   binding.bottomNav.setupWithNavController(nav)
   receiveIntent(intent)
   lifecycleScope.launch{repeatOnLifecycle(Lifecycle.State.STARTED){
    launch{vm.session.collect{state->
     binding.bottomNav.isVisible=state=="READY"
     if(state=="READY"){
-     if(nav.currentDestination?.id==R.id.auth)nav.navigate(R.id.tasks,null,navOptions{popUpTo(R.id.auth){inclusive=true}})
+     if(nav.currentDestination?.id==R.id.auth)nav.navigate(R.id.workspaces,null,navOptions{popUpTo(R.id.auth){inclusive=true}})
      openPending()
     }else if(nav.currentDestination?.id!=R.id.auth)nav.setGraph(R.navigation.main)
    }}
@@ -39,7 +39,7 @@ class MainActivity:AppCompatActivity(){
  }
  override fun onNewIntent(intent:Intent){super.onNewIntent(intent);setIntent(intent);receiveIntent(intent);openPending()}
  private fun receiveIntent(intent:Intent){intent.getStringExtra("taskId")?.let{if(runCatching{java.util.UUID.fromString(it)}.isSuccess)vm.pendingTaskId=it};intent.removeExtra("taskId")}
- private fun openPending(){if(vm.session.value=="READY")vm.pendingTaskId?.let{vm.pendingTaskId=null;nav.navigate(R.id.detail,Bundle().apply{putString("taskId",it)})}}
+ private fun openPending(){if(vm.session.value=="READY"&&vm.pendingTaskId!=null){vm.pendingTaskId=null;vm.message.value="Thông báo này thuộc phiên bản công việc trước."}}
  override fun onSupportNavigateUp()=nav.navigateUp()||super.onSupportNavigateUp()
  override fun onResume(){super.onResume();if(vm.session.value=="READY")vm.refresh()}
 }

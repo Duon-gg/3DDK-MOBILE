@@ -1,0 +1,16 @@
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent" android:layout_height="match_parent" android:padding="12dp">
+ <TextView android:id="@+id/heading" android:layout_width="0dp" android:layout_height="wrap_content" android:textSize="24sp" android:textStyle="bold" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintTop_toTopOf="parent"/>
+ <TextView android:id="@+id/status" android:layout_width="0dp" android:layout_height="wrap_content" android:paddingVertical="8dp" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintTop_toBottomOf="@id/heading"/>
+ <com.google.android.material.textfield.TextInputLayout android:id="@+id/search_box" android:layout_width="0dp" android:layout_height="wrap_content" android:hint="Tìm trong bảng" app:layout_constraintTop_toBottomOf="@id/status" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent"><com.google.android.material.textfield.TextInputEditText android:id="@+id/search" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="text" android:maxLines="1"/></com.google.android.material.textfield.TextInputLayout>
+ <LinearLayout android:id="@+id/actions" android:layout_width="0dp" android:layout_height="wrap_content" app:layout_constraintTop_toBottomOf="@id/search_box" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent">
+  <com.google.android.material.button.MaterialButton android:id="@+id/refresh" style="@style/Widget.Material3.Button.OutlinedButton" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="Làm mới"/>
+  <com.google.android.material.button.MaterialButton android:id="@+id/add" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:text="Thêm dòng"/>
+ </LinearLayout>
+ <TextView android:id="@+id/empty" android:layout_width="0dp" android:layout_height="wrap_content" android:padding="12dp" android:text="Bảng trống. Thêm dòng đầu tiên để bắt đầu." app:layout_constraintTop_toBottomOf="@id/actions" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent"/>
+ <HorizontalScrollView android:layout_width="0dp" android:layout_height="0dp" android:fillViewport="true" app:layout_constraintTop_toBottomOf="@id/empty" app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent">
+  <LinearLayout android:layout_width="wrap_content" android:layout_height="match_parent" android:orientation="vertical">
+   <LinearLayout android:id="@+id/header" android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="horizontal" android:background="#DBEAFE"/>
+   <androidx.recyclerview.widget.RecyclerView android:id="@+id/grid" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1"/>
+  </LinearLayout>
+ </HorizontalScrollView>
+</androidx.constraintlayout.widget.ConstraintLayout>

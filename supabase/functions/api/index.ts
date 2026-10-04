@@ -6,7 +6,7 @@ const keys=createRemoteJWKSet(new URL('https://www.googleapis.com/service_accoun
 Deno.serve(async request=>{
  const requestId=crypto.randomUUID();
  try {
-  const match=new URL(request.url).pathname.match(/\/api\/v1(\/.*)$/);
+  const match=new URL(request.url).pathname.match(/\/api\/v([12])(\/.*)$/);
   if(!match||!['GET','POST','PATCH','PUT','DELETE'].includes(request.method)) throw new Error('NOT_FOUND');
   const bearer=request.headers.get('Authorization')?.match(/^Bearer (.+)$/)?.[1];
   if(!bearer) throw new Error('UNAUTHORIZED');
@@ -21,8 +21,9 @@ Deno.serve(async request=>{
    try { body=JSON.parse(new TextDecoder().decode(buffer)); } catch { throw new Error('VALIDATION'); }
    if(!body||Array.isArray(body)||typeof body!=='object') throw new Error('VALIDATION');
   }
-  const result=await rpc('api_dispatch',{p_uid:actor.uid,p_email:actor.email,p_name:actor.name,p_method:request.method,p_path:match[1],p_body:body});
-  if(request.method!=='GET'&&typeof EdgeRuntime!=='undefined') EdgeRuntime.waitUntil(fetch(`${env('SUPABASE_URL')}/functions/v1/dispatch`,{method:'POST',headers:{'x-dispatch-secret':env('DISPATCH_SECRET')},signal:AbortSignal.timeout(20000)}).catch(()=>undefined));
+  const result=await rpc(match[1]==='2'?'workspace_api':'api_dispatch',{p_uid:actor.uid,p_email:actor.email,p_name:actor.name,p_method:request.method,p_path:match[2],p_body:body});
+  const dispatchSecret=Deno.env.get('DISPATCH_SECRET');
+  if(match[1]==='1'&&request.method!=='GET'&&dispatchSecret&&typeof EdgeRuntime!=='undefined') EdgeRuntime.waitUntil(fetch(`${env('SUPABASE_URL')}/functions/v1/dispatch`,{method:'POST',headers:{'x-dispatch-secret':dispatchSecret},signal:AbortSignal.timeout(20000)}).catch(()=>undefined));
   return Response.json(result,{headers:{'X-Request-Id':requestId,'Cache-Control':'no-store'}});
  } catch(error) {
   const response=failure(error); console.error(JSON.stringify({requestId,status:response.status})); response.headers.set('X-Request-Id',requestId);return response;

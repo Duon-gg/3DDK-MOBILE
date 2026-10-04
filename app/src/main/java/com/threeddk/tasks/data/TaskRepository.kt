@@ -27,6 +27,10 @@ class TaskRepository(private val context:Context) {
  private val api=ApiTransport(if(configured)BuildConfig.SUPABASE_URL.trimEnd('/')+"/functions/v1/api/v1/" else "https://unconfigured.invalid/"){force->
   auth?.currentUser?.getIdToken(force)?.await()?.token?:throw ApiException("UNAUTHORIZED")
  }
+ val workspaceApi=ApiTransport(if(configured)BuildConfig.SUPABASE_URL.trimEnd('/')+"/functions/v1/api/v2/" else "https://unconfigured.invalid/"){force->
+  auth?.currentUser?.getIdToken(force)?.await()?.token?:throw ApiException("UNAUTHORIZED")
+ }
+ val workspaces by lazy {WorkspaceRepository(this)}
  fun observe(owner:String)=dao.observe(owner)
  fun savedEmail()=runCatching {secure.getString("email","")?:""}.getOrDefault("")
  fun rememberEmail(email:String,remember:Boolean){if(remember)secure.edit().putString("email",email).apply() else secure.edit().remove("email").apply()}
@@ -37,17 +41,10 @@ class TaskRepository(private val context:Context) {
  suspend fun refresh()=mutex.withLock {
   val owner=owner()
   try {
-   val me=api.call("GET","me")
-   val members=api.call("GET","members").asJsonArray
-   val tasks=api.call("GET","tasks").asJsonArray
-   val notes=api.call("GET","notifications").asJsonArray
+   val me=workspaceApi.call("GET","me")
    checkOwner(owner)
    db.withTransaction {
     dao.put(listOf(CacheEntry(owner,"me",owner,me.toString())))
-    listOf("members" to members,"tasks" to tasks,"notifications" to notes).forEach { (kind,rows)->
-     dao.clearKind(owner,kind)
-     dao.put(rows.map { row->CacheEntry(owner,kind,row.asJsonObject[if(kind=="members")"uid" else "id"].asString,row.toString()) })
-    }
    }
   } catch(e:ApiException) {
    db.handleAccessFailure(e.code)
@@ -59,7 +56,7 @@ class TaskRepository(private val context:Context) {
   checkOwner(owner);dao.put(listOf(CacheEntry(owner,"tasks",id,task.toString()),CacheEntry(owner,"history",id,history.toString())))
  }
  suspend fun mutate(method:String,path:String,body:JsonObject)=mutex.withLock {
-  val owner=owner();val result=api.call(method,path,body);checkOwner(owner)
+  val owner=owner();val result=(if(path=="me")workspaceApi else api).call(method,path,body);checkOwner(owner)
   if(result.isJsonObject&&result.asJsonObject.has("assigneeIds"))dao.put(listOf(CacheEntry(owner,"tasks",result.asJsonObject["id"].asString,result.toString())))
   result
  }

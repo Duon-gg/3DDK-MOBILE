@@ -1,6 +1,6 @@
 # 3DDK: bảng dữ liệu và cộng tác trên Android
 
-Ngày: 2026-10-04. Trạng thái: thiết kế chuyển đổi; chưa triển khai.
+Ngày: 2026-10-04. Trạng thái: đang triển khai bản dùng thử; xem PREVIEW-V2.md để biết chức năng đã có.
 
 ## Mục tiêu đã được người dùng chọn
 
@@ -102,4 +102,4 @@ App mới tăng versionCode và dùng keystore hiện có. API v1 tiếp tục p
 
 ## Trạng thái triển khai
 
-Chỉ có thiết kế này được bổ sung. Mã sản phẩm và cloud vẫn là phiên bản quản lý công việc một nhóm. Chưa có chức năng bảng tùy biến hoặc tương đương Teable.
+Đã bổ sung API v2 và giao diện không gian/cơ sở dữ liệu/bảng, năm kiểu cột, sửa dòng, lời mời, cache và nháp. Thiết kế đầy đủ ở trên vẫn là mục tiêu; bản dùng thử chưa triển khai transfer ownership, quản lý quyền sau khi tham gia và các phân hệ nâng cao. Xem PREVIEW-V2.md.
