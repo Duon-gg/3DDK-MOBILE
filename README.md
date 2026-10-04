@@ -1,6 +1,8 @@
-# 3DDK Tasks
+# 3DDK — bảng dữ liệu và cộng tác
 
-Ứng dụng Android quản lý công việc cho một nhóm sinh viên: giao nhiều người, chỉ định đại diện, lưu nháp offline, nộp kết quả và nhóm trưởng duyệt.
+Ứng dụng Android cho phép người dùng tự tạo không gian làm việc, cơ sở dữ liệu, bảng và cột tùy chỉnh; nhập/sửa bản ghi và mời người khác cùng làm. Bản dùng thử `0.2.0-preview` giữ Kotlin/XML và Firebase Authentication. Xem [cách dùng và giới hạn bản mới](docs/PREVIEW-V2.md).
+
+Mục tiêu tham chiếu là Teable, nhưng bản hiện tại chưa có toàn bộ chức năng Teable. API v1 quản lý công việc một nhóm vẫn được giữ để tương thích dữ liệu cũ. Tài liệu v1 bên dưới chỉ áp dụng cho luồng cũ; hướng dẫn v2 nằm trong PREVIEW-V2.
 
 Kotlin · XML/View Binding · MVVM/StateFlow · Room · Retrofit/Gson · Firebase Auth/FCM · Supabase PostgreSQL/Edge Functions.
 

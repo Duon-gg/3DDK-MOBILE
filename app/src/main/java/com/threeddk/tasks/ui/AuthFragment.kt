@@ -28,7 +28,7 @@ class AuthFragment:Fragment(){
    b.login.isVisible=session!="CONFIG";b.register.isVisible=session!="CONFIG";b.reset.isVisible=auth||session=="VERIFY"
    when(session){
     "CONFIG"->b.status.text="Ứng dụng chưa được kết nối Firebase/Supabase.\n\nNhóm phát triển cần điền cấu hình trong local.properties rồi dựng lại APK. Xem README trong repository 3DDK-MOBILE."
-    "AUTH"->{b.status.text="Đăng nhập bằng email đã được nhóm trưởng mời.";b.login.text="Đăng nhập";b.register.text="Tạo tài khoản";b.reset.text="Quên mật khẩu"}
+    "AUTH"->{b.status.text="Tạo bảng của bạn, mời mọi người cùng làm. Đăng ký để bắt đầu — không cần lời mời.";b.login.text="Đăng nhập";b.register.text="Tạo tài khoản";b.reset.text="Quên mật khẩu"}
     "VERIFY"->{b.status.text="Kiểm tra email ${vm.repo.auth?.currentUser?.email} và mở liên kết xác minh.";b.login.text="Tôi đã xác minh";b.register.text="Gửi lại email";b.reset.text="Đăng xuất"}
     "BLOCKED"->{b.status.text="Tài khoản chưa được mời hoặc đã ngừng quyền. Liên hệ nhóm trưởng.";b.login.text="Kiểm tra lại quyền";b.register.text="Đăng xuất"}
    }

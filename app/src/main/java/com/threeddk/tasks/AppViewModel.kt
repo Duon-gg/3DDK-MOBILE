@@ -42,17 +42,16 @@ class AppViewModel(app:Application):AndroidViewModel(app) {
    launch{repo.observe(user.uid).collect{rows.value=it}}
    launch{repo.dao.observeDrafts(user.uid).collect{drafts.value=it}}
   }
-  if(repo.cachedMe()!=null)session.value="READY"
+  session.value="READY"
   refreshNow()
  }
  private suspend fun refreshNow() {
   try {
    repo.refresh();session.value="READY";syncNote.value="Đã đồng bộ • ${formattedTime(java.time.Instant.now().toString())}"
-   runCatching{repo.registerDevice()}
   } catch(e:Exception){
    syncNote.value="Đang xem dữ liệu đã lưu • Chưa đồng bộ được"
    if(e is ApiException && e.code in listOf("NOT_INVITED","FORBIDDEN","UNVERIFIED","UNAUTHORIZED")) {
-    observer?.cancel();rows.value=emptyList();drafts.value=emptyList();session.value=if(e.code=="UNAUTHORIZED")"AUTH" else "BLOCKED"
+    observer?.cancel();rows.value=emptyList();drafts.value=emptyList();session.value=if(e.code=="UNVERIFIED")"VERIFY" else "AUTH"
    }
    throw e
   }
