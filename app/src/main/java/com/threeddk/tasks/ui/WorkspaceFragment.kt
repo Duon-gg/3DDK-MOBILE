@@ -53,12 +53,16 @@ class WorkspaceFragment:Fragment(){
   findNavController().navigate(if(next.startsWith("tables/"))R.id.dataTable else R.id.workspaceBrowser,bundleOf("path" to next))
  }
  private fun create(){
-  val b=DialogInputBinding.inflate(layoutInflater);b.valueBox.hint="Tên";b.extraBox.isVisible=false;b.choice.isVisible=false
+  val b=DialogInputBinding.inflate(layoutInflater);b.valueBox.hint="Tên";b.extraBox.isVisible=false
+  val canUseTemplate=path.startsWith("bases/")&&vm.data.value?.text("role")=="OWNER"
+  b.choice.isVisible=canUseTemplate
+  if(canUseTemplate){b.choice.contentDescription="Loại bảng";b.choice.adapter=ArrayAdapter(requireContext(),android.R.layout.simple_spinner_dropdown_item,listOf("Bảng công việc (có sẵn cột)","Bảng trống"))}
   val d=MaterialAlertDialogBuilder(requireContext()).setTitle(binding?.add?.text).setView(b.root).setPositiveButton("Tạo",null).setNegativeButton("Hủy",null).create();dialog=d
   d.setOnShowListener{d.getButton(-1).setOnClickListener{
    val name=b.value.text.toString().trim();if(name.length !in 1..100){b.valueBox.error="Nhập tên từ 1 đến 100 ký tự";return@setOnClickListener}
    val target=if(path=="workspaces")path else if(path.startsWith("workspaces/"))"$path/bases" else "$path/tables"
-   vm.mutate("POST",target,JsonObject().apply{addProperty("name",name)}){if(isAdded)d.dismiss()}
+   if(canUseTemplate&&b.choice.selectedItemPosition==0)vm.createTaskTable(name){if(isAdded)d.dismiss()}
+   else vm.mutate("POST",target,JsonObject().apply{addProperty("name",name)}){if(isAdded)d.dismiss()}
   }};d.show()
  }
  override fun onCreateOptionsMenu(menu:Menu,inflater:MenuInflater){

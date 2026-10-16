@@ -37,4 +37,19 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
   val payload=if(pendingPair?.first==signature)pendingPair!!.second else values.deepCopy().apply{addProperty("requestId",java.util.UUID.randomUUID().toString())}.also{pendingPair=signature to it}
   run{val result=repo.mutate(method,target,payload);pendingPair=null;runCatching{repo.refresh(path)}.onFailure{note.value="Đã lưu • Chưa tải lại được"};done(result)}
  }
+ fun createTaskTable(name:String,done:()->Unit){
+  if(busy.value)return
+  run{
+   val target="$path/tables"
+   val signature="POST$target$name"
+   val payload=if(pendingPair?.first==signature)pendingPair!!.second else JsonObject().apply{addProperty("name",name);addProperty("requestId",java.util.UUID.randomUUID().toString())}.also{pendingPair=signature to it}
+   val created=repo.mutate("POST",target,payload);pendingPair=null
+   try{
+    taskTableFields().forEach{field->repo.mutate("POST","tables/${created.text("id")}/fields",field.apply{addProperty("requestId",java.util.UUID.randomUUID().toString())})}
+    note.value="Đã tạo bảng công việc"
+   }catch(e:Exception){
+    error.value="Bảng đã tạo nhưng chưa đủ cột. Mở bảng để thêm cột còn thiếu, rồi thử lại khi có mạng."
+   }finally{runCatching{repo.refresh(path)};done()}
+  }
+ }
 }

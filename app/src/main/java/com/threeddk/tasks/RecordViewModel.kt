@@ -39,8 +39,10 @@ class RecordViewModel(app:Application):AndroidViewModel(app){
  var raw=JsonObject();private set
  var version=1;private set
  var writable=false;private set
+ val canArchive get()=recordId!="new"&&writable&&ready.value
  private var path="";private var recordId="";private var key=""
  private var requestId=java.util.UUID.randomUUID().toString()
+ private var archiveRequestId=java.util.UUID.randomUUID().toString()
  private var observer:Job?=null
  private val draftMutex=Mutex()
  fun open(resource:String,id:String){
@@ -80,7 +82,7 @@ class RecordViewModel(app:Application):AndroidViewModel(app){
     val snapshot=JsonParser.parseString(entry.json).asJsonObject
     val record=snapshot.objects("records").firstOrNull{it.text("id")==recordId}?:throw ApiException("NOT_FOUND")
     if(snapshot.text("role")=="VIEWER")throw ApiException("FORBIDDEN")
-    table.value=snapshot;version=record.get("version").asInt;requestId=java.util.UUID.randomUUID().toString();conflict.value=false
+    table.value=snapshot;version=record.get("version").asInt;requestId=java.util.UUID.randomUUID().toString();archiveRequestId=java.util.UUID.randomUUID().toString();conflict.value=false
     draftMutex.withLock{repo.save(makeDraft())};status.value="Đã nhận phiên bản mới. Kiểm tra nội dung nháp trước khi bấm Lưu."
    }catch(e:Exception){status.value=friendlyError(e)}finally{busy.value=false}
   }
@@ -98,6 +100,19 @@ class RecordViewModel(app:Application):AndroidViewModel(app){
     draftMutex.withLock{repo.removeDraft(key)};runCatching{repo.refresh(path)};finished.value=true
    }catch(e:Exception){
     if(e is ApiException&&e.code=="CONFLICT"){conflict.value=true;status.value="Dòng đã được sửa trên thiết bị khác. Nháp vẫn còn; hãy xem bản mới trước khi lưu lại."}
+    else status.value=friendlyError(e)
+   }finally{busy.value=false}
+  }
+ }
+ fun archive(){
+  if(busy.value||!canArchive||conflict.value)return
+  viewModelScope.launch{
+   busy.value=true
+   try{
+    repo.mutate("DELETE","$path/records/$recordId",JsonObject().apply{addProperty("expectedVersion",version);addProperty("requestId",archiveRequestId)})
+    draftMutex.withLock{repo.removeDraft(key)};runCatching{repo.refresh(path)};finished.value=true
+   }catch(e:Exception){
+    if(e is ApiException&&e.code=="CONFLICT"){conflict.value=true;status.value="Dòng đã thay đổi trên thiết bị khác. Hãy tải phiên bản mới trước khi lưu trữ."}
     else status.value=friendlyError(e)
    }finally{busy.value=false}
   }
