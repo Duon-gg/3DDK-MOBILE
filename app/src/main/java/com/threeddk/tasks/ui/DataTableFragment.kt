@@ -22,6 +22,8 @@ class DataTableFragment:Fragment(){
  private val path get()=requireArguments().getString("path")!!
  private var dialog:androidx.appcompat.app.AlertDialog?=null
  private var schema=""
+ private var statusFilter:String?=null
+ private var sortDeadline=false
  private lateinit var adapter:GridAdapter
  override fun onCreateView(i:LayoutInflater,c:ViewGroup?,s:Bundle?)=FragmentDataTableBinding.inflate(i,c,false).also{binding=it}.root
  override fun onViewCreated(v:View,s:Bundle?){
@@ -32,20 +34,35 @@ class DataTableFragment:Fragment(){
  }
  private fun render(){
   val b=binding?:return;val data=vm.data.value?:return
-  b.heading.text=data.text("name");b.add.isVisible=data.text("role")!="VIEWER"
+  b.heading.text=data.text("name")+(statusFilter?.let{" • $it"}?:"")+(if(sortDeadline)" • Hạn gần nhất" else "");b.add.isVisible=data.text("role")!="VIEWER"
   val fields=data.objects("fields");val signature=fields.toString()
   val schemaChanged=schema!=signature||b.header.childCount==0
   if(schemaChanged){schema=signature;b.header.removeAllViews();fields.forEach{b.header.addView(gridCell(it.text("name"),true))}}
   adapter.fields=fields
   if(schemaChanged)adapter.notifyDataSetChanged()
-  val records=data.objects("records").filter{row->row.getAsJsonObject("cells").entrySet().any{(_,value)->value.toString().contains(b.search.text.toString(),true)}}
-  val all=if(b.search.text.isNullOrBlank())data.objects("records") else records
+  val statusField=fields.firstOrNull{it.text("name").equals("Trạng thái",true)&&it.text("type")=="SELECT"}
+  val deadlineField=fields.firstOrNull{it.text("type")=="DATE"&&(it.text("name").contains("hạn",true)||it.text("name").contains("deadline",true))}
+  val all=visibleRecords(data.objects("records"),b.search.text.toString(),statusField?.text("id"),statusFilter,deadlineField?.text("id"),sortDeadline)
   adapter.submitList(all);b.empty.isVisible=all.isEmpty()
   b.empty.text=if(b.search.text.isNullOrBlank())"Bảng trống. Thêm dòng đầu tiên để bắt đầu." else "Không có kết quả phù hợp."
  }
  private fun edit(id:String){findNavController().navigate(R.id.recordEditor,bundleOf("path" to path,"recordId" to id))}
- override fun onCreateOptionsMenu(menu:Menu,inflater:MenuInflater){if(vm.data.value?.text("role")=="OWNER")menu.add(0,10,0,"Thêm cột")}
- override fun onOptionsItemSelected(item:MenuItem):Boolean{if(item.itemId!=10)return super.onOptionsItemSelected(item);addField();return true}
+ override fun onCreateOptionsMenu(menu:Menu,inflater:MenuInflater){
+  val fields=vm.data.value?.objects("fields").orEmpty()
+  if(fields.any{it.text("name").equals("Trạng thái",true)&&it.text("type")=="SELECT"})menu.add(0,11,0,"Lọc trạng thái")
+  if(fields.any{it.text("type")=="DATE"&&(it.text("name").contains("hạn",true)||it.text("name").contains("deadline",true))})menu.add(0,12,1,if(sortDeadline)"Bỏ sắp xếp hạn" else "Hạn gần nhất trước")
+  if(vm.data.value?.text("role")=="OWNER")menu.add(0,10,2,"Thêm cột")
+ }
+ override fun onOptionsItemSelected(item:MenuItem):Boolean{
+  when(item.itemId){
+   10->addField()
+   11->{val field=vm.data.value?.objects("fields")?.firstOrNull{it.text("name").equals("Trạng thái",true)&&it.text("type")=="SELECT"}?:return true
+    val options=listOf("Tất cả")+field.getAsJsonArray("options").map{it.asString}
+    dialog=MaterialAlertDialogBuilder(requireContext()).setTitle("Lọc trạng thái").setSingleChoiceItems(options.toTypedArray(),options.indexOf(statusFilter).takeIf{it>=0}?:0){d,which->statusFilter=options.getOrNull(which)?.takeUnless{it=="Tất cả"};render();d.dismiss()}.setNegativeButton("Hủy",null).show()}
+   12->{sortDeadline=!sortDeadline;render();return true}
+   else->return super.onOptionsItemSelected(item)
+  };return true
+ }
  private fun addField(){
   val b=DialogInputBinding.inflate(layoutInflater);b.valueBox.hint="Tên cột"
   val types=listOf("TEXT","NUMBER","DATE","CHECKBOX","SELECT")
