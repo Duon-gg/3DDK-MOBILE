@@ -19,11 +19,17 @@ class RecordEditorFragment:Fragment(){
  private var rendered=false
  override fun onCreateView(i:LayoutInflater,c:ViewGroup?,s:Bundle?)=FragmentRecordEditorBinding.inflate(i,c,false).also{binding=it}.root
  override fun onViewCreated(v:View,s:Bundle?){
-  val b=binding!!;b.save.setOnClickListener{vm.submit()}
+  val b=binding!!;setHasOptionsMenu(true);b.save.setOnClickListener{vm.submit()}
   b.reconcile.setOnClickListener{MaterialAlertDialogBuilder(requireContext()).setTitle("Dùng phiên bản mới?").setMessage("Giữ nội dung nháp của bạn và nhận phiên bản mới nhất. Khi lưu tiếp, nội dung nháp sẽ thay thế dòng đó.").setPositiveButton("Tải phiên bản mới"){_,_->vm.reconcile()}.setNegativeButton("Giữ nháp",null).show()}
-  watch(vm.ready){if(it&&!rendered)render()};watch(vm.status){b.status.text=it;updateEnabled()};watch(vm.busy){updateEnabled()}
+  watch(vm.ready){if(it&&!rendered)render();requireActivity().invalidateOptionsMenu()};watch(vm.status){b.status.text=it;updateEnabled()};watch(vm.busy){updateEnabled()}
   watch(vm.conflict){b.reconcile.isVisible=it;updateEnabled()};watch(vm.finished){if(it)findNavController().popBackStack()}
   vm.open(requireArguments().getString("path")!!,requireArguments().getString("recordId")?:"new")
+ }
+ override fun onCreateOptionsMenu(menu:Menu,inflater:MenuInflater){if(vm.canArchive)menu.add(0,20,0,"Lưu trữ dòng")}
+ override fun onOptionsItemSelected(item:MenuItem):Boolean{
+  if(item.itemId!=20)return super.onOptionsItemSelected(item)
+  MaterialAlertDialogBuilder(requireContext()).setTitle("Lưu trữ dòng này?").setMessage("Dòng sẽ biến mất khỏi bảng. Nội dung nháp trên máy chỉ được xóa sau khi máy chủ xác nhận lưu trữ.").setPositiveButton("Lưu trữ"){_,_->vm.archive()}.setNegativeButton("Hủy",null).show()
+  return true
  }
  private fun updateEnabled(){binding?.save?.isEnabled=vm.ready.value&&vm.writable&&!vm.busy.value&&!vm.conflict.value;binding?.reconcile?.isEnabled=!vm.busy.value}
  private fun render(){

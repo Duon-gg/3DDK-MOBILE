@@ -1,6 +1,6 @@
 # 3DDK — bảng dữ liệu và cộng tác
 
-Ứng dụng Android cho phép người dùng tự tạo không gian làm việc, cơ sở dữ liệu, bảng và cột tùy chỉnh; nhập/sửa bản ghi và mời người khác cùng làm. Bản dùng thử `0.2.0-preview` giữ Kotlin/XML và Firebase Authentication. Xem [cách dùng và giới hạn bản mới](docs/PREVIEW-V2.md).
+Ứng dụng Android cho phép người dùng tự tạo không gian làm việc, cơ sở dữ liệu, bảng công việc hoặc bảng tùy chỉnh; nhập/sửa/lưu trữ dòng và mời người khác cùng làm. Bản dùng thử `0.2.0-preview` giữ Kotlin/XML và Firebase Authentication. Xem [cách dùng và giới hạn bản mới](docs/PREVIEW-V2.md).
 
 Mục tiêu tham chiếu là Teable, nhưng bản hiện tại chưa có toàn bộ chức năng Teable. API v1 quản lý công việc một nhóm vẫn được giữ để tương thích dữ liệu cũ. Tài liệu v1 bên dưới chỉ áp dụng cho luồng cũ; hướng dẫn v2 nằm trong PREVIEW-V2.
 
@@ -40,4 +40,4 @@ Lệnh cuối cần emulator/điện thoại. CI kiểm tra source và bản bui
 
 ## Trạng thái bàn giao
 
-Source có luồng công việc, backend và hướng dẫn cấu hình. Project Firebase/Supabase chưa được cung cấp; đăng nhập/push thật, nghiệm thu nhiều tài khoản và thử với sinh viên cần thực hiện sau cấu hình. Chưa công bố bản phát hành đã nghiệm thu `v1.0.0`.
+Project Firebase/Supabase thử nghiệm đã được cấu hình và kiểm tra với một tài khoản trên điện thoại thật. Chưa nghiệm thu nhiều tài khoản đồng thời, thông báo cho luồng bảng v2 và bản phát hành `v1.0.0`.

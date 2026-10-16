@@ -4,9 +4,10 @@
 
 1. Cài APK có cấu hình cloud. Bản debug cập nhật được APK debug trước đó; bản release có chữ ký khác và không được cài đè lên debug.
 2. Đăng nhập hoặc tạo tài khoản rồi xác minh email. Không cần được nhóm trưởng mời để vào app.
-3. Không gian → Tạo không gian → Tạo cơ sở dữ liệu → Tạo bảng.
-4. Bảng có sẵn cột Tên. Menu trên cùng → Thêm cột: văn bản, số, ngày, đánh dấu, lựa chọn.
+3. Không gian → Tạo không gian → Tạo cơ sở dữ liệu → Tạo bảng. Chủ không gian có thể chọn **Bảng công việc** để có sẵn Mô tả, Trạng thái, Ưu tiên, Hạn và Người phụ trách; hoặc chọn Bảng trống.
+4. Bảng trống có sẵn cột Tên. Menu trên cùng → Thêm cột: văn bản, số, ngày, đánh dấu, lựa chọn.
 5. Thêm dòng, nhập nội dung rồi Lưu lên bảng. Chạm một dòng để sửa. Vuốt ngang để xem các cột.
+   Trong bảng công việc, menu trên cùng có Lọc trạng thái và Hạn gần nhất trước. Mở một dòng rồi chọn Lưu trữ dòng để ẩn dòng cũ khỏi bảng.
 6. Tại không gian, menu → Mời thành viên. Người nhận dùng đúng email, mở mục Lời mời và chấp nhận. Thông báo lời mời hiện nằm trong app; chưa gửi email tự động.
 
 ## Quyền và giới hạn của bản dùng thử
@@ -15,6 +16,7 @@
 - Tối đa 20 không gian do một tài khoản sở hữu, 50 cơ sở dữ liệu/không gian, 50 bảng/cơ sở dữ liệu, 30 cột và 500 dòng chưa lưu trữ/bảng. Giới hạn được kiểm tra trên server.
 - Đọc cache khi offline. Nhập bản nháp trên máy, gửi thủ công khi có mạng. Nháp gắn tài khoản/bảng/dòng.
 - Khi xung đột, không tự ghi đè. Người dùng chủ động nhận phiên bản mới và kiểm tra lại trước khi gửi.
+- Mẫu bảng được tạo qua nhiều yêu cầu API. Nếu mất mạng giữa chừng, bảng đã tạo có thể thiếu vài cột; chủ không gian mở bảng và thêm các cột còn thiếu. Chức năng lọc/sắp xếp chạy trên dữ liệu đã tải của bảng.
 - Không tự chuyển công việc v1 thành bảng. API v1 và dữ liệu cũ được giữ.
 - Chưa có công thức, quan hệ giữa bảng, Kanban/Calendar, tệp đính kèm, nhập/xuất, realtime hoặc tự động hóa/AI của Teable.
 
