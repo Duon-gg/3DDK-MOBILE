@@ -66,11 +66,22 @@ class WorkspaceFragment:Fragment(){
   }};d.show()
  }
  override fun onCreateOptionsMenu(menu:Menu,inflater:MenuInflater){
-  if(path.startsWith("workspaces/")&&vm.data.value!=null){menu.add(0,1,0,"Thành viên");if(vm.data.value?.text("role")=="OWNER")menu.add(0,2,1,"Mời thành viên")}
+  if(path.startsWith("workspaces/")&&vm.data.value!=null){menu.add(0,1,0,"Thành viên");if(vm.data.value?.text("role")=="OWNER"){menu.add(0,2,1,"Mời thành viên");menu.add(0,3,2,"Lời mời đã gửi")}}
  }
  override fun onOptionsItemSelected(item:MenuItem):Boolean{
   if(item.itemId==1){val data=vm.data.value?:return true;dialog=MaterialAlertDialogBuilder(requireContext()).setTitle("Thành viên").setMessage(data.objects("members").joinToString("\n"){it.text("displayName")+" • "+roleLabel(it.text("role"))}).setPositiveButton("Đóng",null).show();return true}
-  if(item.itemId==2){invite();return true};return super.onOptionsItemSelected(item)
+  if(item.itemId==2){invite();return true}
+  if(item.itemId==3){sentInvites();return true}
+  return super.onOptionsItemSelected(item)
+ }
+ private fun sentInvites(){
+  val invites=vm.data.value?.objects("invites").orEmpty()
+  if(invites.isEmpty()){dialog=MaterialAlertDialogBuilder(requireContext()).setTitle("Lời mời đã gửi").setMessage("Chưa có lời mời nào đang chờ.").setPositiveButton("Đóng",null).show();return}
+  val labels=invites.map{it.text("email")+" • "+roleLabel(it.text("role"))}.toTypedArray()
+  dialog=MaterialAlertDialogBuilder(requireContext()).setTitle("Lời mời đang chờ").setItems(labels){_,index->
+   val invite=invites[index]
+   dialog=MaterialAlertDialogBuilder(requireContext()).setTitle("Thu hồi lời mời?").setMessage(invite.text("email")+" sẽ không thể dùng lời mời này để tham gia.").setPositiveButton("Thu hồi"){_,_->vm.mutate("DELETE","$path/invites/${invite.text("id")}",JsonObject())}.setNegativeButton("Giữ lại",null).show()
+  }.setNegativeButton("Đóng",null).show()
  }
  private fun invite(){
   val b=DialogInputBinding.inflate(layoutInflater);b.valueBox.hint="Email được mời";b.value.inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS;b.extraBox.isVisible=false

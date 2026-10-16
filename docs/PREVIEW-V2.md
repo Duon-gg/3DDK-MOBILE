@@ -8,7 +8,7 @@
 4. Bảng trống có sẵn cột Tên. Menu trên cùng → Thêm cột: văn bản, số, ngày, đánh dấu, lựa chọn.
 5. Thêm dòng, nhập nội dung rồi Lưu lên bảng. Chạm một dòng để sửa. Vuốt ngang để xem các cột.
    Trong bảng công việc, menu trên cùng có Lọc trạng thái và Hạn gần nhất trước. Mở một dòng rồi chọn Lưu trữ dòng để ẩn dòng cũ khỏi bảng.
-6. Tại không gian, menu → Mời thành viên. Người nhận dùng đúng email, mở mục Lời mời và chấp nhận. Thông báo lời mời hiện nằm trong app; chưa gửi email tự động.
+6. Tại không gian, menu → Mời thành viên. Người nhận dùng đúng email, mở mục Lời mời và chấp nhận. Chủ không gian có thể xem **Lời mời đã gửi** và thu hồi lời mời đang chờ. Thông báo lời mời hiện nằm trong app; chưa gửi email tự động.
 
 ## Quyền và giới hạn của bản dùng thử
 
