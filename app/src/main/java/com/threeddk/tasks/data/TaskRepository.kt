@@ -47,7 +47,7 @@ class TaskRepository(private val context:Context) {
     dao.put(listOf(CacheEntry(owner,"me",owner,me.toString())))
    }
   } catch(e:ApiException) {
-   db.handleAccessFailure(e.code)
+   db.handleAccessFailure(e.code,owner)
    throw e
   }
  }
@@ -89,11 +89,15 @@ class TaskRepository(private val context:Context) {
   mutate("PUT","devices/$installation",body("token" to token))
  }
  suspend fun logout()=mutex.withLock {
+  val owner=uid?:return@withLock
   val installation=settings.getString("installation",null)
   // Rotate locally even offline; stale pushes contain no private task content.
-  if(uid!=null&&installation!=null)runCatching{api.call("DELETE","devices/$installation",body())}
-  runCatching{FirebaseMessaging.getInstance().deleteToken().await()}
-  settings.edit().remove("installation").apply()
-  auth?.signOut();db.withTransaction{dao.clearCache();dao.clearDrafts()}
+  if(installation!=null)runCatching{api.call("DELETE","devices/$installation",body())}
+  if(uid!=owner)return@withLock
+  workspaces.clearSession(owner)
+  if(uid==null){
+   settings.edit().remove("installation").apply()
+   runCatching{FirebaseMessaging.getInstance().deleteToken().await()}
+  }
  }
 }

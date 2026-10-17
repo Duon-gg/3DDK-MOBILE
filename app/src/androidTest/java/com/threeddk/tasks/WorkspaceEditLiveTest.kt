@@ -12,6 +12,7 @@ import androidx.test.espresso.matcher.ViewMatchers.*
 import androidx.navigation.fragment.NavHostFragment
 import com.threeddk.tasks.data.*
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.first
 import org.hamcrest.Matchers.allOf
 import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
@@ -37,14 +38,18 @@ class WorkspaceEditLiveTest {
    val title=allOf(isAssignableFrom(EditText::class.java),withHint("Tên"))
    eventually{onView(title).check(matches(isDisplayed()))}
    onView(title).perform(replaceText("Nhập trực tiếp trên điện thoại"),closeSoftKeyboard())
-   eventually{assertTrue(runBlocking{session.dao.draft(session.uid!!,"v2/$path/new")}?.description?.contains("Nhập trực tiếp") == true)}
+   var draftKey=""
+   eventually{
+    val draft=runBlocking{session.dao.observeDrafts(session.uid!!).first()}.firstOrNull{it.taskId.startsWith("v2/$path/new/")&&it.description.contains("Nhập trực tiếp")}
+    assertNotNull("A new record must have its own UUID draft key",draft);draftKey=draft!!.taskId
+   }
    scenario.recreate()
    eventually{onView(title).check(matches(withText("Nhập trực tiếp trên điện thoại")))}
    onView(withId(R.id.save)).perform(click())
    eventually{onView(withId(R.id.heading)).check(matches(withText("Công việc của nhóm")));onView(withId(R.id.add)).check(matches(isEnabled()))}
    val rows=api.call("GET",path).asJsonObject.objects("records")
    assertTrue(rows.any{it.toString().contains("Nhập trực tiếp trên điện thoại")})
-   assertNull(session.dao.draft(session.uid!!,"v2/$path/new"))
+   assertNull(session.dao.draft(session.uid!!,draftKey))
    val bitmap=InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
    java.io.File(app.getExternalFilesDir(null),"workspace-preview.png").outputStream().use{bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}
   }
