@@ -14,14 +14,14 @@ async function fixture(){
  const table=await api(owner,'POST',`/bases/${base.id}/tables`,body({name:'Công việc'}));
  return {owner,w,base,table};
 }
-before(async()=>{db=new PGlite();await db.exec('create role anon; create role authenticated; create role service_role;');await db.exec(await readFile(new URL('../supabase/migrations/202610040001_workspaces.sql',import.meta.url),'utf8'));});
+before(async()=>{db=new PGlite();await db.exec('create role anon; create role authenticated; create role service_role;');for(const name of ['202610040001_workspaces.sql','202610170001_p0_workspaces.sql'])await db.exec(await readFile(new URL('../supabase/migrations/'+name,import.meta.url),'utf8'));});
 after(async()=>{await db?.close();});
 test('new verified user needs no invitation and duplicate create is idempotent',async()=>{
  const user=uid();assert.equal((await api(user,'GET','/me')).uid,user);assert.deepEqual(await api(user,'GET','/workspaces'),[]);
  const request=body({name:'Riêng tư'});const w=await api(user,'POST','/workspaces',request);
  assert.deepEqual(await api(user,'POST','/workspaces',request),w);
  assert.equal((await api(user,'GET','/workspaces')).length,1);
- await assert.rejects(api(user,'POST','/workspaces',{...request,name:'Khác'}),/CONFLICT/);
+ await assert.rejects(api(user,'POST','/workspaces',{...request,name:'Khác'}),/REQUEST_REUSED/);
 });
 test('cross workspace paths and forged roles cannot expose data',async()=>{
  const {owner,w,base,table}=await fixture();const outsider=uid();

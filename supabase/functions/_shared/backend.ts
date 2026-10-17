@@ -6,12 +6,14 @@ export async function rpc(name:string, body:Record<string,unknown>={}) {
  if(!response.ok) throw Object.assign(new Error(data.message??'SERVER_ERROR'),{sqlCode:data.code});
  return data;
 }
-export function failure(error:unknown):Response {
+export function failure(error:unknown,requestId=crypto.randomUUID()):Response {
  const message=error instanceof Error?error.message:'SERVER_ERROR';
- const statuses:Record<string,number>={UNAUTHORIZED:401,UNVERIFIED:403,NOT_INVITED:403,FORBIDDEN:403,NOT_FOUND:404,CONFLICT:409,INVALID_STATE:409,ASSIGNED_WORK:409,VALIDATION:422,RATE_LIMIT:429,PAYLOAD_TOO_LARGE:413};
+ const statuses:Record<string,number>={UNAUTHORIZED:401,UNVERIFIED:403,NOT_INVITED:403,FORBIDDEN:403,NOT_FOUND:404,CONFLICT:409,INVALID_STATE:409,ASSIGNED_WORK:409,SCHEMA_CHANGED:409,REQUEST_REUSED:409,CURSOR_STALE:409,CLIENT_UPGRADE_REQUIRED:409,INVALID_VIEW:422,UNSUPPORTED_FIELD:422,VALIDATION:422,RATE_LIMIT:429,PAYLOAD_TOO_LARGE:413};
  const sqlCode=(error as {sqlCode?:string})?.sqlCode;
- const code=message in statuses?message:sqlCode?.startsWith('22')||sqlCode?.startsWith('23')?'VALIDATION':'SERVER_ERROR';
- return Response.json({code,message:code},{status:statuses[code]??500});
+ const code=Object.hasOwn(statuses,message)?message:sqlCode?.startsWith('22')||sqlCode?.startsWith('23')?'VALIDATION':'SERVER_ERROR';
+ const headers:Record<string,string>={'X-Request-Id':requestId,'Cache-Control':'no-store'};
+ if(code==='RATE_LIMIT') headers['Retry-After']='60';
+ return Response.json({code,message:code,requestId},{status:statuses[code]??500,headers});
 }
 export async function secretMatches(given:string,expected:string) {
  const digest=async(s:string)=>new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)));
