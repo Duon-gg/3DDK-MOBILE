@@ -4,7 +4,7 @@
  <fragment android:id="@+id/workspaceBrowser" android:name="com.threeddk.tasks.ui.WorkspaceFragment" android:label="Không gian làm việc"><argument android:name="path" app:argType="string"/></fragment>
  <fragment android:id="@+id/dataTable" android:name="com.threeddk.tasks.ui.DataTableFragment" android:label="Bảng dữ liệu"><argument android:name="path" app:argType="string"/></fragment>
  <fragment android:id="@+id/recordEditor" android:name="com.threeddk.tasks.ui.RecordEditorFragment" android:label="Bản ghi"><argument android:name="path" app:argType="string"/><argument android:name="recordId" app:argType="string" android:defaultValue="new"/></fragment>
- <fragment android:id="@+id/auth" android:name="com.threeddk.tasks.ui.AuthFragment" android:label="3DDK Tasks"/>
+ <fragment android:id="@+id/auth" android:name="com.threeddk.tasks.ui.AuthFragment" android:label="@string/app_name"/>
  <fragment android:id="@+id/tasks" android:name="com.threeddk.tasks.ui.OverviewFragment" android:label="Công việc"><argument android:name="kind" app:argType="string" android:defaultValue="tasks"/></fragment>
  <fragment android:id="@+id/notifications" android:name="com.threeddk.tasks.ui.OverviewFragment" android:label="Thông báo"><argument android:name="kind" app:argType="string" android:defaultValue="notifications"/></fragment>
  <fragment android:id="@+id/team" android:name="com.threeddk.tasks.ui.OverviewFragment" android:label="Nhóm"><argument android:name="kind" app:argType="string" android:defaultValue="members"/></fragment>

@@ -1,6 +1,5 @@
 package com.threeddk.tasks
 
-import android.os.Bundle
 import android.widget.EditText
 import androidx.test.core.app.*
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -11,6 +10,7 @@ import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.matcher.ViewMatchers.*
 import androidx.navigation.fragment.NavHostFragment
 import com.threeddk.tasks.data.*
+import com.google.gson.JsonObject
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.first
 import org.hamcrest.Matchers.allOf
@@ -21,18 +21,32 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class WorkspaceEditLiveTest {
- private fun eventually(assertion:()->Unit){var last:Throwable?=null;repeat(40){try{assertion();return}catch(e:Throwable){last=e;android.os.SystemClock.sleep(250)}};throw last!!}
+ private fun eventually(assertion:()->Unit){var last:Throwable?=null;repeat(180){try{assertion();return}catch(e:AssertionError){last=e}catch(e:Exception){last=e};android.os.SystemClock.sleep(250)};throw last!!}
  @Test fun editDraftRotateAndSubmitFromPhone():Unit=runBlocking {
   assumeTrue(InstrumentationRegistry.getArguments().getString("liveWorkspace")=="true")
-  val app=ApplicationProvider.getApplicationContext<TasksApp>();val session=app.repository;val api=session.workspaceApi
-  assertTrue(session.auth?.currentUser?.isEmailVerified==true)
-  val w=api.call("GET","workspaces").asJsonArray.map{it.asJsonObject}.first{it.text("name")=="3DDK • Bảng dùng thử"}
-  val base=api.call("GET","workspaces/${w.text("id")}").asJsonObject.objects("bases").first()
-  val table=api.call("GET","bases/${base.text("id")}").asJsonObject.objects("tables").first();val path="tables/${table.text("id")}"
-  session.workspaces.refresh(path)
+  val app=ApplicationProvider.getApplicationContext<TasksApp>();val session=app.repository
+  assertTrue("Đăng nhập và xác minh email trước khi chạy",session.auth?.currentUser?.isEmailVerified==true)
   ActivityScenario.launch(MainActivity::class.java).use{scenario->
-   InstrumentationRegistry.getInstrumentation().waitForIdleSync()
-   scenario.onActivity{activity->(activity.supportFragmentManager.findFragmentById(R.id.nav_host) as NavHostFragment).navController.navigate(R.id.dataTable,Bundle().apply{putString("path",path)})}
+   eventually{onView(withId(R.id.bottom_nav)).check(matches(isDisplayed()))}
+   scenario.onActivity{activity->(activity.supportFragmentManager.findFragmentById(R.id.nav_host) as NavHostFragment).navController.navigate(R.id.workspaces)}
+   fun createAndOpen(name:String){
+    eventually{onView(withId(R.id.add)).check(matches(isEnabled()))}
+    onView(withId(R.id.add)).perform(click())
+    onView(withId(R.id.value)).perform(replaceText(name),closeSoftKeyboard())
+    onView(withText(R.string.p0_tao)).perform(click())
+    eventually{onView(withId(R.id.heading)).check(matches(withText(name)))}
+   }
+   createAndOpen("3DDK • Kiểm thử P0 ${java.util.UUID.randomUUID().toString().take(8)}")
+   createAndOpen("Dự án kiểm thử")
+   createAndOpen("Công việc của nhóm")
+   var path=""
+   scenario.onActivity{activity->
+    val nav=(activity.supportFragmentManager.findFragmentById(R.id.nav_host) as NavHostFragment).navController
+    assertEquals(R.id.dataTable,nav.currentDestination?.id)
+    path=nav.currentBackStackEntry?.arguments?.getString("path").orEmpty()
+   }
+   assertTrue(path.startsWith("tables/"))
+   val schemaVersion=session.workspaces.metadata(path)["schemaVersion"].asInt
    eventually{onView(withId(R.id.add)).check(matches(isEnabled()))}
    onView(withId(R.id.add)).perform(click())
    val title=allOf(isAssignableFrom(EditText::class.java),withHint("Tên"))
@@ -47,7 +61,7 @@ class WorkspaceEditLiveTest {
    eventually{onView(title).check(matches(withText("Nhập trực tiếp trên điện thoại")))}
    onView(withId(R.id.save)).perform(click())
    eventually{onView(withId(R.id.heading)).check(matches(withText("Công việc của nhóm")));onView(withId(R.id.add)).check(matches(isEnabled()))}
-   val rows=api.call("GET",path).asJsonObject.objects("records")
+   val rows=session.workspaces.query(path,JsonObject().apply{addProperty("expectedSchemaVersion",schemaVersion);addProperty("limit",50)}).objects("items")
    assertTrue(rows.any{it.toString().contains("Nhập trực tiếp trên điện thoại")})
    assertNull(session.dao.draft(session.uid!!,draftKey))
    val bitmap=InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()

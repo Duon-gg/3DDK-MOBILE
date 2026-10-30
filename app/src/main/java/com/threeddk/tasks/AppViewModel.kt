@@ -3,6 +3,10 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuthException
+import com.google.firebase.auth.GoogleAuthProvider
+import androidx.credentials.ClearCredentialStateRequest
+import androidx.credentials.CredentialManager
+import androidx.credentials.exceptions.ClearCredentialException
 import com.google.gson.JsonObject
 import com.threeddk.tasks.data.*
 import kotlinx.coroutines.*
@@ -28,7 +32,7 @@ class AppViewModel(app:Application):AndroidViewModel(app) {
   viewModelScope.launch {
    loading.value=true
    try {block()} catch(e:CancellationException){throw e} catch(e:Exception){
-    message.value=when(e){is FirebaseAuthException->when(e.errorCode){"ERROR_INVALID_EMAIL"->"Email không hợp lệ.";"ERROR_EMAIL_ALREADY_IN_USE"->"Email này đã được đăng ký.";"ERROR_WEAK_PASSWORD"->"Mật khẩu cần ít nhất 6 ký tự.";else->"Không đăng nhập được. Kiểm tra email/mật khẩu hoặc thử lại."};else->friendlyError(e)}
+    message.value=when(e){is FirebaseAuthException->when(e.errorCode){"ERROR_INVALID_EMAIL"->"Email không hợp lệ.";"ERROR_EMAIL_ALREADY_IN_USE"->"Email này đã được đăng ký.";"ERROR_WEAK_PASSWORD"->"Mật khẩu cần ít nhất 6 ký tự.";else->getApplication<Application>().getString(authenticationErrorResource(e.errorCode))};else->friendlyError(e)}
    } finally {loading.value=false}
   }
  }
@@ -63,6 +67,12 @@ class AppViewModel(app:Application):AndroidViewModel(app) {
   else repo.auth.signInWithEmailAndPassword(email.trim(),password).await()
   repo.rememberEmail(email.trim(),remember);restore()
  }
+ fun loginWithGoogle(idToken:String)=execute{
+  check(session.value=="AUTH")
+  require(idToken.isNotBlank())
+  requireNotNull(repo.auth).signInWithCredential(GoogleAuthProvider.getCredential(idToken,null)).await()
+  restore()
+ }
  fun verifyAgain()=execute{
   repo.auth?.currentUser?.reload()?.await()
   repo.auth?.currentUser?.getIdToken(true)?.await()
@@ -70,7 +80,11 @@ class AppViewModel(app:Application):AndroidViewModel(app) {
  }
  fun resendVerification()=execute{repo.auth?.currentUser?.sendEmailVerification()?.await();message.value="Đã gửi email xác minh. Kiểm tra cả thư mục spam."}
  fun reset(email:String)=execute{repo.auth?.sendPasswordResetEmail(email.trim())?.await();message.value="Nếu email hợp lệ, bạn sẽ nhận hướng dẫn đặt lại mật khẩu."}
- fun logout()=execute{observer?.cancel();repo.logout();rows.value=emptyList();drafts.value=emptyList();session.value="AUTH";pendingTaskId=null}
+ fun logout()=execute{
+  observer?.cancel();repo.logout();rows.value=emptyList();drafts.value=emptyList();session.value="AUTH";pendingTaskId=null
+  try{CredentialManager.create(getApplication()).clearCredentialState(ClearCredentialStateRequest())}
+  catch(e:ClearCredentialException){message.value=getApplication<Application>().getString(R.string.auth_logout_provider_warning)}
+ }
  fun detail(id:String)=execute{repo.detail(id)}
  fun mutation(method:String,path:String,body:JsonObject,done:()->Unit={})=execute{
   try{repo.mutate(method,path,body)}catch(e:ApiException){if(e.code=="CONFLICT")runCatching{repo.refresh()};throw e}

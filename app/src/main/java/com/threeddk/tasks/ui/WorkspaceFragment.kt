@@ -58,11 +58,12 @@ class WorkspaceFragment:Fragment(){
   b.choice.isVisible=canUseTemplate
   if(canUseTemplate){b.choice.contentDescription=getString(R.string.p0_loai_bang);b.choice.adapter=ArrayAdapter(requireContext(),android.R.layout.simple_spinner_dropdown_item,listOf(getString(R.string.p0_bang_cong_viec_co_san_cot),getString(R.string.p0_bang_trong)))}
   val d=MaterialAlertDialogBuilder(requireContext()).setTitle(binding?.add?.text).setView(b.root).setPositiveButton(getString(R.string.p0_tao),null).setNegativeButton(getString(R.string.p0_huy),null).create();dialog=d
+  fun created(result:JsonObject){if(binding!=null&&d.isShowing){d.dismiss();open(result.text("id"))}}
   d.setOnShowListener{d.getButton(-1).setOnClickListener{
    val name=b.value.text.toString().trim();if(name.length !in 1..100){b.valueBox.error=getString(R.string.p0_nhap_ten_tu_1_den_100_ky_tu);return@setOnClickListener}
    val target=if(path=="workspaces")path else if(path.startsWith("workspaces/"))"$path/bases" else "$path/tables"
-   if(canUseTemplate&&b.choice.selectedItemPosition==0)vm.createTaskTable(name){if(isAdded)d.dismiss()}
-   else vm.mutate("POST",target,JsonObject().apply{addProperty("name",name)}){if(isAdded)d.dismiss()}
+   if(canUseTemplate&&b.choice.selectedItemPosition==0)vm.createTaskTable(name,::created)
+   else vm.mutate("POST",target,JsonObject().apply{addProperty("name",name)},::created)
   }};d.show()
  }
  override fun onCreateOptionsMenu(menu:Menu,inflater:MenuInflater){

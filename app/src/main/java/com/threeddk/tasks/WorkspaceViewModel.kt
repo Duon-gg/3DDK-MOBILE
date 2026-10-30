@@ -144,8 +144,8 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
    done(result)
   }
  }
- fun createTaskTable(name:String,done:()->Unit){
+ fun createTaskTable(name:String,done:(JsonObject)->Unit){
   if(!supports("atomicTemplates")){error.value="Máy chủ chưa hỗ trợ tạo bảng công việc an toàn. Hãy cập nhật backend trước.";return}
-  mutate("POST","$path/tables",JsonObject().apply{addProperty("name",name);addProperty("template","TASKS")}){note.value="Đã tạo đầy đủ bảng công việc";done()}
+  mutate("POST","$path/tables",JsonObject().apply{addProperty("name",name);addProperty("template","TASKS")}){result->note.value="Đã tạo đầy đủ bảng công việc";done(result)}
  }
 }

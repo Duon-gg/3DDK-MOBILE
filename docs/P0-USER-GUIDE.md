@@ -1,14 +1,14 @@
-# Hướng dẫn dùng thử 3DDK Tasks P0
+# Hướng dẫn dùng thử 3DDK P0
 
 Dành cho bản Android và backend P0 tương ứng. Tài liệu mô tả thao tác đã có trong mã P0; không phải biên bản nghiệm thu trên điện thoại. Nếu ứng dụng báo cần cập nhật backend hoặc APK, báo người quản trị trước khi thử tiếp. Tiến độ kiểm tra và điều kiện triển khai nằm trong [P0-VERIFICATION.md](P0-VERIFICATION.md).
 
 ## 1. Bắt đầu và tạo bảng công việc
 
-1. Đăng ký tài khoản bằng email thật, xác minh email rồi đăng nhập.
+1. Đăng ký tài khoản bằng email thật, xác minh email rồi đăng nhập. Nút **Tiếp tục với Google** cần cấu hình Firebase theo [GOOGLE-SIGN-IN.md](GOOGLE-SIGN-IN.md) trước khi sử dụng.
 2. Trong **Không gian**, bấm **Tạo không gian** và nhập tên nhóm hoặc công ty.
-3. Mở không gian vừa tạo → **Tạo cơ sở dữ liệu**. Đây là nơi chứa các bảng của một dự án.
-4. Mở cơ sở dữ liệu → **Tạo bảng**. Chủ không gian chọn **Bảng công việc (có sẵn cột)**, nhập tên và bấm **Tạo**.
-5. Mở bảng. Mẫu có các cột **Tên, Mô tả, Trạng thái, Ưu tiên, Hạn, Người phụ trách**. Toàn bộ mẫu được tạo bằng một yêu cầu; nếu lỗi, kiểm tra thông báo rồi thử lại.
+3. Sau khi tạo thành công, ứng dụng tự mở không gian mới. Bấm **Tạo cơ sở dữ liệu**. Đây là nơi chứa các bảng của một dự án.
+4. Ứng dụng mở cơ sở dữ liệu mới → **Tạo bảng**. Chủ không gian chọn **Bảng công việc (có sẵn cột)**, nhập tên và bấm **Tạo**.
+5. Bảng mới tự mở. Mẫu có các cột **Tên, Mô tả, Trạng thái, Ưu tiên, Hạn, Người phụ trách**. Toàn bộ mẫu được tạo bằng một yêu cầu; nếu lỗi, kiểm tra thông báo rồi thử lại. Nếu đóng hộp thoại trước khi nhận kết quả, ứng dụng không tự chuyển màn hình; làm mới danh sách để kiểm tra.
 
 Người tự tạo không gian là chủ của không gian đó. Người tham gia không nhìn thấy không gian của người khác nếu chưa được mời.
 
