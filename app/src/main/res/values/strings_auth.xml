@@ -1,0 +1,14 @@
+<resources>
+ <string name="auth_continue_google">Tiếp tục với Google</string>
+ <string name="auth_google_setup">Đăng nhập Google chưa được cấu hình cho bản ứng dụng này. Bạn có thể dùng email và mật khẩu.</string>
+ <string name="auth_google_unavailable">Chưa mở được đăng nhập Google. Kiểm tra kết nối, tài khoản Google và Google Play Services rồi thử lại.</string>
+ <string name="auth_google_no_account">Chưa có tài khoản Google phù hợp. Thêm tài khoản Google trên thiết bị rồi thử lại.</string>
+ <string name="auth_google_invalid">Không đọc được kết quả từ Google. Hãy thử đăng nhập lại.</string>
+ <string name="auth_provider_disabled">Cách đăng nhập này chưa được bật. Bạn có thể thử cách khác.</string>
+ <string name="auth_account_collision">Email này đã dùng cách đăng nhập khác. Hãy đăng nhập bằng cách cũ hoặc đặt lại mật khẩu; dữ liệu tài khoản vẫn được giữ.</string>
+ <string name="auth_invalid_credential">Thông tin đăng nhập không hợp lệ hoặc đã hết hạn. Hãy thử lại.</string>
+ <string name="auth_network_error">Không kết nối được để đăng nhập. Kiểm tra mạng rồi thử lại.</string>
+ <string name="auth_default_error">Không đăng nhập được. Kiểm tra thông tin hoặc thử lại.</string>
+ <string name="auth_logout_provider_warning">Đã đăng xuất khỏi 3DDK. Chưa xóa được phiên chọn tài khoản Google; lần sau hãy kiểm tra tài khoản trước khi tiếp tục.</string>
+ <string name="auth_intro">Tạo bảng của bạn và mời mọi người cùng làm. Dùng Google hoặc tạo tài khoản bằng email để bắt đầu.</string>
+</resources>

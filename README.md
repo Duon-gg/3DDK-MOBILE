@@ -1,6 +1,6 @@
 # 3DDK — bảng dữ liệu và cộng tác
 
-Ứng dụng Android cho phép người dùng tự tạo không gian làm việc, cơ sở dữ liệu, bảng công việc hoặc bảng tùy chỉnh; nhập/sửa/lưu trữ dòng và mời người khác cùng làm. Bản dùng thử P0 `0.3.0-p0-preview` giữ Kotlin/XML và Firebase Authentication. Xem [hướng dẫn dùng thử P0](docs/P0-USER-GUIDE.md) và [kết quả kiểm tra, giới hạn](docs/P0-VERIFICATION.md).
+Ứng dụng Android cho phép người dùng tự tạo không gian làm việc, cơ sở dữ liệu, bảng công việc hoặc bảng tùy chỉnh; nhập/sửa/lưu trữ dòng và mời người khác cùng làm. Bản dùng thử P0 `0.3.1-p0-preview` giữ Kotlin/XML và Firebase Authentication. Xem [hướng dẫn dùng thử P0](docs/P0-USER-GUIDE.md) và [kết quả kiểm tra mới nhất](docs/PROGRESS-2026-10-31.md).
 
 Mục tiêu tham chiếu là Teable, nhưng bản hiện tại chưa có toàn bộ chức năng Teable. API v1 quản lý công việc một nhóm vẫn được giữ để tương thích dữ liệu cũ. Tài liệu v1 bên dưới chỉ áp dụng cho luồng cũ; hướng dẫn v2 nằm trong PREVIEW-V2.
 
@@ -19,6 +19,8 @@ Khi chưa có cấu hình Firebase/Supabase, app hiển thị hướng dẫn c�
 
 - [Hướng dẫn dùng thử P0: bảng, người làm, chế độ xem và nháp](docs/P0-USER-GUIDE.md)
 - [Bằng chứng kiểm tra P0 và các bước nghiệm thu còn lại](docs/P0-VERIFICATION.md)
+- [Kết quả kiểm thử ngày 31/10 và giới hạn bản 0.3.1](docs/PROGRESS-2026-10-31.md)
+- [Cấu hình đăng nhập Google](docs/GOOGLE-SIGN-IN.md)
 
 - [Cấu hình Firebase/Supabase, seed nhóm trưởng và ký release](docs/SETUP.md)
 - [API, quyền và luồng dữ liệu](docs/API.md)
@@ -43,4 +45,4 @@ Lệnh cuối cần emulator/điện thoại. CI kiểm tra source và bản bui
 
 ## Trạng thái bàn giao
 
-Project Firebase/Supabase thử nghiệm đã được cấu hình và kiểm tra với một tài khoản trên điện thoại thật. Chưa nghiệm thu nhiều tài khoản đồng thời, thông báo cho luồng bảng v2 và bản phát hành `v1.0.0`.
+Project Firebase/Supabase thử nghiệm đã được cấu hình và kiểm tra với một tài khoản trên điện thoại thật ở đợt trước. Ngày 31/10, Supabase đang khôi phục sau khi tạm dừng; Google đã có mã Android nhưng còn chờ cấu hình cloud. Xem [trạng thái mới nhất](docs/PROGRESS-2026-10-31.md). Chưa nghiệm thu nhiều tài khoản đồng thời, thông báo cho luồng bảng v2 và bản phát hành `v1.0.0`.
