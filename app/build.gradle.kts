@@ -10,7 +10,7 @@ android {
  compileSdk = 35
  defaultConfig {
   applicationId = "com.threeddk.tasks"
-  minSdk = 24; targetSdk = 34; versionCode = 4; versionName = "0.3.1-p0-preview"
+  minSdk = 24; targetSdk = 34; versionCode = 5; versionName = "0.3.2-google-preview"
   testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   listOf("FIREBASE_API_KEY","FIREBASE_APP_ID","FIREBASE_PROJECT_ID","FIREBASE_SENDER_ID","FIREBASE_WEB_CLIENT_ID","SUPABASE_URL").forEach {
    buildConfigField("String", it, quoted(configuration(it)))

@@ -1,6 +1,6 @@
 # 3DDK — bảng dữ liệu và cộng tác
 
-Ứng dụng Android cho phép người dùng tự tạo không gian làm việc, cơ sở dữ liệu, bảng công việc hoặc bảng tùy chỉnh; nhập/sửa/lưu trữ dòng và mời người khác cùng làm. Bản dùng thử P0 `0.3.1-p0-preview` giữ Kotlin/XML và Firebase Authentication. Xem [hướng dẫn dùng thử P0](docs/P0-USER-GUIDE.md) và [kết quả kiểm tra mới nhất](docs/PROGRESS-2026-10-31.md).
+Ứng dụng Android cho phép người dùng tự tạo không gian làm việc, cơ sở dữ liệu, bảng công việc hoặc bảng tùy chỉnh; nhập/sửa/lưu trữ dòng và mời người khác cùng làm. Bản dùng thử `0.3.2-google-preview` giữ Kotlin/XML và Firebase Authentication. Xem [hướng dẫn dùng thử P0](docs/P0-USER-GUIDE.md) và [kết quả kiểm tra mới nhất](docs/PROGRESS-2026-10-31.md).
 
 Mục tiêu tham chiếu là Teable, nhưng bản hiện tại chưa có toàn bộ chức năng Teable. API v1 quản lý công việc một nhóm vẫn được giữ để tương thích dữ liệu cũ. Tài liệu v1 bên dưới chỉ áp dụng cho luồng cũ; hướng dẫn v2 nằm trong PREVIEW-V2.
 
@@ -45,4 +45,4 @@ Lệnh cuối cần emulator/điện thoại. CI kiểm tra source và bản bui
 
 ## Trạng thái bàn giao
 
-Project Firebase/Supabase thử nghiệm đã được cấu hình và kiểm tra với một tài khoản trên điện thoại thật ở đợt trước. Ngày 31/10, Supabase đang khôi phục sau khi tạm dừng; Google đã có mã Android nhưng còn chờ cấu hình cloud. Xem [trạng thái mới nhất](docs/PROGRESS-2026-10-31.md). Chưa nghiệm thu nhiều tài khoản đồng thời, thông báo cho luồng bảng v2 và bản phát hành `v1.0.0`.
+Project Firebase/Supabase thử nghiệm đã được cấu hình và kiểm tra với một tài khoản trên điện thoại thật ở đợt trước. Ngày 31/10, Supabase đã trở lại Healthy; Google đã Enabled và APK mới đã có cấu hình phù hợp. Kiểm thử phiên Google thật còn chờ hoàn tất thiết lập tài khoản Google trên thiết bị. Xem [trạng thái mới nhất](docs/PROGRESS-2026-10-31.md). Chưa nghiệm thu nhiều tài khoản đồng thời, thông báo cho luồng bảng v2 và bản phát hành `v1.0.0`.
