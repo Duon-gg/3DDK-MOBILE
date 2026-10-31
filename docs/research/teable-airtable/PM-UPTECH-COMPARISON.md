@@ -8,7 +8,7 @@ Ngày ghi nhận: **31/10/2026**. Mục tiêu: đưa cách dùng của **Ứng d
 |---|---|---|
 | `https://pm.uptech.vn/` | Ban đầu thấy trang đăng ký email/mật khẩu và Google. Sau đó tìm được tab Edge đã có phiên đăng nhập: mở không gian, dự án, bảng Grid và các menu lọc/sắp xếp/nhóm/ẩn cột. Chi tiết ở mục 1.1. | Quan sát giao diện và mở menu chỉ đọc; không sửa bản ghi, không thử lưu cấu hình, không kiểm thử phân quyền server. Chưa xác định phiên bản, tùy chỉnh hoặc edition của tên miền này. |
 | Mã nguồn Teable công khai | GitHub API trả SHA **`b6ae0a1ab8a9c7ce8b6eef16b1af27cc770c2cd9`**, thời điểm commit **28/10/2026 06:22:38 UTC**; đọc các phần liên quan dưới đây tại đúng SHA. | Không suy ra `pm.uptech.vn` chạy cùng SHA. Không build hoặc chạy Teable, không kiểm thử các đường mã chưa đọc. |
-| 3DDK | Đối chiếu mã P0 tại `d044254` cùng thay đổi của bản **0.3.1** trong lượt này: Google phía Android, tự mở đối tượng vừa tạo, live test theo giao thức P0. Build cuối qua sáu tác vụ; 22 JVM test và 9 instrumentation test API 35 đạt. Đã đăng nhập lại và Resume Supabase; API Edge chặn đúng hai request thiếu/sai token bằng `401 UNAUTHORIZED`. | Cấu hình Google trên Firebase chưa được lưu và chưa có đăng nhập Google thật. Dashboard Supabase cuối lượt báo **Restoration in progress**; hai request bị chặn chưa chứng minh database sẵn sàng. Chưa chứng minh luồng cloud với người dùng thật hoặc tải công ty 100 người. |
+| 3DDK | P0 tại `d044254`, tự mở đối tượng vừa tạo trong **0.3.1**, cùng cấu hình Google trong **0.3.2**. Google đã Enabled; hai SHA-1 và Web client ID đã cấu hình. Sáu tác vụ build được xác nhận đạt, 22 JVM test đạt, lượt API 35 thông thường có 9 bài đạt/3 bỏ qua. Supabase đã Healthy. | UI Google thật đã mở, nhưng phần thiết lập Google còn cần người dùng hoàn tất. Bài hủy lượt đầu lỗi driver Espresso và đã sửa riêng test để chờ chạy lại. Chưa chứng minh Firebase/API nhận phiên Google hoặc tải công ty 100 người. |
 
 [Commit Teable cố định][commit] và [metadata GitHub API][commit-api] xác định phiên bản nguồn tham khảo. Các trích dẫn `S1–S10` dưới đây đều là đường dẫn công khai của chính repository Teable, không phải dữ liệu trích từ tài khoản tại `pm.uptech.vn`.
 
@@ -48,7 +48,7 @@ Các callback quyền trong Grid là bằng chứng về **lớp UI**. Bảng tr
 
 | Cách dùng cần đối chiếu | 3DDK P0 và mã 0.3.1 đang có | Phần còn thiếu / điều kiện nghiệm thu |
 |---|---|---|
-| Bắt đầu nhanh | Tự đăng ký email, tạo không gian riêng, nhận lời mời; 0.3.1 đã có nút và luồng SDK Google phía Android. | Lưu cấu hình Google trên Firebase; thử đăng nhập, hủy chọn, đăng xuất/đổi tài khoản và tài khoản email đã có. |
+| Bắt đầu nhanh | Tự đăng ký email, tạo không gian riêng, nhận lời mời; 0.3.2 đã có cấu hình Google trên Firebase và APK, bài UI có cấu hình/khôi phục Activity đạt. | Hoàn tất thiết lập Google trên thiết bị rồi thử phiên thật, hủy chọn, đăng xuất/đổi tài khoản và tài khoản email đã có. |
 | Mở dữ liệu | Không gian → cơ sở dữ liệu → bảng, ba tab Không gian/Lời mời/Cá nhân; mã 0.3.1 tự mở đối tượng mới sau server xác nhận. | Kiểm thử trên cloud, chuyển bảng và quay lại không mất trạng thái. |
 | Bảng dùng hằng ngày | Grid cuộn, tìm/lọc/sort, chọn cột, tải thêm, saved view cá nhân/chung. | Sửa từng ô tại bảng, nhóm, chỉnh thứ tự/độ rộng cột, chọn nhiều dòng và thao tác hàng loạt. |
 | Cột tùy chỉnh | TEXT/NUMBER/DATE/CHECKBOX/SELECT/USER, editor theo kiểu và kiểm tra server. | Đổi tên/options/thứ tự an toàn; kiểu nhiều lựa chọn, tệp và trường hệ thống khi có nhu cầu đã chốt. |
@@ -81,8 +81,8 @@ Lượt này chỉ đọc để viết đối chiếu, không chép mã hoặc t
 - Bản tải tĩnh: `artifacts/2026-10-31/teable-public/manifest.json` ghi SHA, URL, số dòng và tên file của 18 nguồn đã tải; `tree-paths.json` chỉ chứa tên tệp công khai, không clone repository hoặc cài dependency Teable.
 - Backend QA cục bộ: `artifacts/2026-10-31/backend-qa-summary.md`, Node 28/28 và Edge 12/12; không thay thế thử nghiệm người dùng thật.
 - Quan sát tên miền tham khảo: phiên Edge đã đăng nhập, mở Grid và các menu chỉ đọc được liệt kê tại mục 1.1. Không thử thay đổi dữ liệu hoặc đưa dữ liệu hàng vào tài liệu.
-- Supabase đã bắt đầu khôi phục project hiện có; `artifacts/2026-10-31/cloud-auth-negative.json` ghi hai kiểm tra chặn thiếu/sai token. Chưa chạy mutation nghiệp vụ hay migration trong đợt này.
-- Còn thiếu: kiểm thử lưu/chỉnh sửa tại tên miền tham khảo, Google cloud của 3DDK, database Supabase khôi phục xong và luồng app với tài khoản thật. Chưa có bằng chứng để tuyên bố app giống toàn bộ Teable hoặc tên miền tham khảo.
+- Supabase đã khôi phục xong và hiển thị Healthy. `artifacts/2026-10-31/cloud-auth-negative.json` ghi hai kiểm tra chặn thiếu/sai token; bằng chứng cấu hình Google/APK nằm trong `artifacts/2026-10-31/google-auth/`. Chưa chạy mutation nghiệp vụ hay migration trong đợt cấu hình Google này.
+- Còn thiếu: kiểm thử lưu/chỉnh sửa tại tên miền tham khảo, phiên Google/API của 3DDK và luồng app với tài khoản thật. Chưa có bằng chứng để tuyên bố app giống toàn bộ Teable hoặc tên miền tham khảo.
 
 [commit]: https://github.com/teableio/teable/commit/b6ae0a1ab8a9c7ce8b6eef16b1af27cc770c2cd9
 [commit-api]: https://api.github.com/repos/teableio/teable/commits/b6ae0a1ab8a9c7ce8b6eef16b1af27cc770c2cd9

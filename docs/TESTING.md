@@ -32,6 +32,42 @@ Các test này chỉ dùng một tài khoản. Đọc cache Room không thay cho
 
 Kết quả đã chạy xem [P0-VERIFICATION.md](P0-VERIFICATION.md). Danh sách trên là cách nghiệm thu, không xác nhận mọi bài thử cloud đã đạt. Thông báo v2 và tải 100 người/20 người cùng sửa cần kiểm tra riêng.
 
+## Đăng nhập Google
+
+Trong lượt cấu hình ngày 31/10/2026, nhà cung cấp Google đã được bật và lưu trên Firebase `ddk-tasks`, SHA-1 debug/release đã được lưu và `FIREBASE_WEB_CLIENT_ID` đã có trong cấu hình cục bộ được Git bỏ qua. JSON Firebase cũ chưa được thay; ứng dụng hiện đọc cấu hình thủ công qua `BuildConfig`, nên dùng Web client ID đã điền. Xem chi tiết [GOOGLE-SIGN-IN.md](GOOGLE-SIGN-IN.md).
+
+Bản cấu hình mới là `0.3.2-google-preview`, `versionCode 5`; build đang chạy, chưa có kết quả ở thời điểm cập nhật mục này. Chưa xác nhận bài thử Google nào bên dưới đạt sau lần cấu hình này.
+
+Dùng APK debug và test APK từ cùng lượt build trên máy ảo dành cho kiểm thử có Google Play Services; thay mã thiết bị theo `adb devices`. Nếu máy đã cài APK release bằng khóa khác, dùng máy ảo khác, không gỡ app hoặc xóa dữ liệu để cài đè. Các test giao diện yêu cầu app đang đăng xuất; chúng tự bỏ qua nếu có tài khoản đang dùng và không tự đăng xuất/xóa nháp.
+
+```powershell
+$googleTestDevice = "emulator-5556"
+$googleTestRunner = "com.threeddk.tasks.test/androidx.test.runner.AndroidJUnitRunner"
+
+# 1. Chỉ chạy thực sự trên bản dựng KHÔNG có Web client ID.
+adb -s $googleTestDevice shell am instrument -w -r -e class "com.threeddk.tasks.GoogleAuthUiTest#missingGoogleConfigurationKeepsEmailLoginAvailableAfterRecreation" $googleTestRunner
+
+# 2. Bản dựng có Web client ID, app đang đăng xuất; không mở cửa sổ Google.
+adb -s $googleTestDevice shell am instrument -w -r -e class "com.threeddk.tasks.GoogleAuthUiTest#configuredGoogleButtonAndEmailLoginSurviveRecreation" $googleTestRunner
+
+# 3. Có Web client ID, app đang đăng xuất; chỉ mở và Back để hủy.
+adb -s $googleTestDevice shell am instrument -w -r -e liveGooglePicker true -e class "com.threeddk.tasks.GoogleAuthUiTest#cancelRealGooglePickerKeepsEmailLoginAvailable" $googleTestRunner
+
+# 4. Chạy SAU KHI người dùng tự hoàn tất đăng nhập Google trong ứng dụng.
+adb -s $googleTestDevice shell am instrument -w -r -e liveGoogleLogin true -e class "com.threeddk.tasks.GoogleAuthUiTest#manuallySignedInGoogleSessionIsAcceptedByBackend" $googleTestRunner
+```
+
+| Test | Bằng chứng nếu thực sự chạy đạt |
+|---|---|
+| Thiếu cấu hình | Nút Google báo chưa cấu hình; email và nút đăng nhập còn dùng sau khi tạo lại màn hình. |
+| Có cấu hình | Nút Google hiện đúng và còn dùng sau khi tạo lại màn hình; email/mật khẩu vẫn dùng được. Không chứng minh Google đã chấp nhận cấu hình. |
+| Hủy cửa sổ Google | Đã thấy cửa sổ nhà cung cấp Google/Credential Manager, Back trả về Auth, không tạo phiên Firebase hoặc hiện lỗi. Test không chọn tài khoản hay nhập thông tin đăng nhập. |
+| Phiên Google và API | SDK xác nhận email đã xác minh và `signInProvider=google.com` cho phiên hiện tại, rồi API trả capabilities P0. Không in token/email và không tạo dữ liệu thử. |
+
+Đối số `liveGooglePicker`/`liveGoogleLogin` mặc định không bật. Test thiếu cấu hình bỏ qua trên APK có Web client ID; test có cấu hình bỏ qua khi thiếu ID hoặc đã đăng nhập. Khi báo cáo, ghi tên test, phiên bản APK, thiết bị và kết quả riêng: `PASSED`, `FAILED` hoặc `SKIPPED`. JUnit assumption có thể khiến lệnh kết thúc thành công dù test bị bỏ qua; cần đọc trạng thái từng case, không suy ra từ riêng dòng `OK`.
+
+Sau khi bài phiên Google đạt, chạy `WorkspaceLiveTest` và `WorkspaceEditLiveTest` bằng `liveWorkspace=true` để kiểm tra công việc với cùng phiên đó. Vẫn cần người dùng thử lần đăng nhập đầu, đăng xuất/đăng nhập lại và tài khoản từng dùng email/mật khẩu. Một lượt capabilities không chứng minh liên kết tài khoản an toàn, hoạt động hai người, xử lý mất mạng hoặc không rò rỉ bộ nhớ.
+
 ## Kiểm tra tự động
 ```sh
 npm ci
