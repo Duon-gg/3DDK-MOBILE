@@ -3,6 +3,10 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuthException
+import com.google.firebase.auth.GoogleAuthProvider
+import androidx.credentials.ClearCredentialStateRequest
+import androidx.credentials.CredentialManager
+import androidx.credentials.exceptions.ClearCredentialException
 import com.google.gson.JsonObject
 import com.threeddk.tasks.data.*
 import kotlinx.coroutines.*
@@ -15,6 +19,8 @@ class AppViewModel(app:Application):AndroidViewModel(app) {
  val rows=MutableStateFlow<List<CacheEntry>>(emptyList())
  val drafts=MutableStateFlow<List<Draft>>(emptyList())
  val loading=MutableStateFlow(false)
+ val changingPassword=MutableStateFlow(false)
+ val canChangePassword get()=repo.auth?.currentUser?.hasPasswordProvider==true
  val message=MutableStateFlow<String?>(null)
  val syncNote=MutableStateFlow("Chưa đồng bộ")
  var pendingTaskId:String?=null
@@ -28,7 +34,7 @@ class AppViewModel(app:Application):AndroidViewModel(app) {
   viewModelScope.launch {
    loading.value=true
    try {block()} catch(e:CancellationException){throw e} catch(e:Exception){
-    message.value=when(e){is FirebaseAuthException->when(e.errorCode){"ERROR_INVALID_EMAIL"->"Email không hợp lệ.";"ERROR_EMAIL_ALREADY_IN_USE"->"Email này đã được đăng ký.";"ERROR_WEAK_PASSWORD"->"Mật khẩu cần ít nhất 6 ký tự.";else->"Không đăng nhập được. Kiểm tra email/mật khẩu hoặc thử lại."};else->friendlyError(e)}
+    message.value=when(e){is FirebaseAuthException->when(e.errorCode){"ERROR_INVALID_EMAIL"->"Email không hợp lệ.";"ERROR_EMAIL_ALREADY_IN_USE"->"Email này đã được đăng ký.";"ERROR_WEAK_PASSWORD"->"Mật khẩu cần ít nhất 6 ký tự.";else->getApplication<Application>().getString(authenticationErrorResource(e.errorCode))};else->friendlyError(e)}
    } finally {loading.value=false}
   }
  }
@@ -42,17 +48,16 @@ class AppViewModel(app:Application):AndroidViewModel(app) {
    launch{repo.observe(user.uid).collect{rows.value=it}}
    launch{repo.dao.observeDrafts(user.uid).collect{drafts.value=it}}
   }
-  if(repo.cachedMe()!=null)session.value="READY"
+  session.value="READY"
   refreshNow()
  }
  private suspend fun refreshNow() {
   try {
    repo.refresh();session.value="READY";syncNote.value="Đã đồng bộ • ${formattedTime(java.time.Instant.now().toString())}"
-   runCatching{repo.registerDevice()}
   } catch(e:Exception){
    syncNote.value="Đang xem dữ liệu đã lưu • Chưa đồng bộ được"
    if(e is ApiException && e.code in listOf("NOT_INVITED","FORBIDDEN","UNVERIFIED","UNAUTHORIZED")) {
-    observer?.cancel();rows.value=emptyList();drafts.value=emptyList();session.value=if(e.code=="UNAUTHORIZED")"AUTH" else "BLOCKED"
+    observer?.cancel();rows.value=emptyList();drafts.value=emptyList();session.value=if(e.code=="UNVERIFIED")"VERIFY" else "AUTH"
    }
    throw e
   }
@@ -64,14 +69,47 @@ class AppViewModel(app:Application):AndroidViewModel(app) {
   else repo.auth.signInWithEmailAndPassword(email.trim(),password).await()
   repo.rememberEmail(email.trim(),remember);restore()
  }
+ fun loginWithGoogle(idToken:String)=execute{
+  check(session.value=="AUTH")
+  require(idToken.isNotBlank())
+  requireNotNull(repo.auth).signInWithCredential(GoogleAuthProvider.getCredential(idToken,null)).await()
+  restore()
+ }
  fun verifyAgain()=execute{
   repo.auth?.currentUser?.reload()?.await()
   repo.auth?.currentUser?.getIdToken(true)?.await()
   restore()
  }
  fun resendVerification()=execute{repo.auth?.currentUser?.sendEmailVerification()?.await();message.value="Đã gửi email xác minh. Kiểm tra cả thư mục spam."}
- fun reset(email:String)=execute{repo.auth?.sendPasswordResetEmail(email.trim())?.await();message.value="Nếu email hợp lệ, bạn sẽ nhận hướng dẫn đặt lại mật khẩu."}
- fun logout()=execute{observer?.cancel();repo.logout();rows.value=emptyList();drafts.value=emptyList();session.value="AUTH";pendingTaskId=null}
+ fun reset(email:String)=execute{
+  requireNotNull(repo.auth).requestPasswordReset(email)
+  message.value=getApplication<Application>().getString(R.string.password_reset_requested)
+ }
+ fun changePassword(current:String,replacement:String,done:(Int?)->Unit){
+  if(changingPassword.value)return
+  changingPassword.value=true
+  viewModelScope.launch{
+   val error=try{
+    requireNotNull(repo.auth).changePassword(current,replacement)
+    message.value=getApplication<Application>().getString(R.string.password_changed)
+    null
+   }catch(e:CancellationException){throw e}
+   catch(e:Exception){
+    when((e as? FirebaseAuthException)?.errorCode){
+     "ERROR_WRONG_PASSWORD","ERROR_INVALID_CREDENTIAL","ERROR_INVALID_LOGIN_CREDENTIALS"->R.string.password_wrong_current
+     "ERROR_WEAK_PASSWORD","ERROR_PASSWORD_DOES_NOT_MEET_REQUIREMENTS"->R.string.password_policy
+     "ERROR_TOO_MANY_REQUESTS"->R.string.password_retry_later
+     else->if(e is com.google.firebase.FirebaseNetworkException)R.string.password_network else R.string.password_change_failed
+    }
+   }finally{changingPassword.value=false}
+   done(error)
+  }
+ }
+ fun logout()=execute{
+  observer?.cancel();repo.logout();rows.value=emptyList();drafts.value=emptyList();session.value="AUTH";pendingTaskId=null
+  try{CredentialManager.create(getApplication()).clearCredentialState(ClearCredentialStateRequest())}
+  catch(e:ClearCredentialException){message.value=getApplication<Application>().getString(R.string.auth_logout_provider_warning)}
+ }
  fun detail(id:String)=execute{repo.detail(id)}
  fun mutation(method:String,path:String,body:JsonObject,done:()->Unit={})=execute{
   try{repo.mutate(method,path,body)}catch(e:ApiException){if(e.code=="CONFLICT")runCatching{repo.refresh()};throw e}

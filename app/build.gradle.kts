@@ -10,9 +10,9 @@ android {
  compileSdk = 35
  defaultConfig {
   applicationId = "com.threeddk.tasks"
-  minSdk = 24; targetSdk = 34; versionCode = 1; versionName = "1.0.0"
+  minSdk = 24; targetSdk = 34; versionCode = 12; versionName = "0.4.5-mobile-preview"
   testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-  listOf("FIREBASE_API_KEY","FIREBASE_APP_ID","FIREBASE_PROJECT_ID","FIREBASE_SENDER_ID","SUPABASE_URL").forEach {
+  listOf("FIREBASE_API_KEY","FIREBASE_APP_ID","FIREBASE_PROJECT_ID","FIREBASE_SENDER_ID","FIREBASE_WEB_CLIENT_ID","SUPABASE_URL").forEach {
    buildConfigField("String", it, quoted(configuration(it)))
   }
  }
@@ -50,6 +50,9 @@ dependencies {
  implementation("com.google.code.gson:gson:2.11.0")
  implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
  implementation("com.google.firebase:firebase-auth")
+ implementation("androidx.credentials:credentials:1.3.0")
+ implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+ implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
  implementation("com.google.firebase:firebase-messaging")
  implementation("com.github.bumptech.glide:glide:4.16.0")
  implementation("androidx.security:security-crypto:1.1.0")

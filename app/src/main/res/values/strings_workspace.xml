@@ -1,0 +1,11 @@
+<resources>
+ <string name="workspace_tests">Dữ liệu kiểm thử</string>
+ <string name="home_more_options">Tùy chọn trang chủ</string>
+ <string name="workspace_tests_empty">Chưa có không gian kiểm thử phù hợp.</string>
+ <string name="workspace_share">Chia sẻ không gian</string>
+ <string name="workspace_star">Đánh dấu không gian</string>
+ <string name="workspace_unstar">Bỏ đánh dấu không gian</string>
+ <string name="workspace_rename">Sửa tên không gian</string>
+ <string name="workspace_options">Tùy chọn không gian</string>
+ <string name="workspace_never_opened">Chưa mở trên thiết bị này</string>
+</resources>
