@@ -1,4 +1,7 @@
-package com.threeddk.tasks.ui
+package com.threeddk.tasks.adapter
+import com.threeddk.tasks.ui.cellLabel
+import com.threeddk.tasks.R
+import com.threeddk.tasks.model.text
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
@@ -7,8 +10,6 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.google.gson.JsonObject
-import com.threeddk.tasks.R
-import com.threeddk.tasks.data.text
 import com.threeddk.tasks.databinding.ItemRecordCardBinding
 import com.threeddk.tasks.databinding.ItemRecordCardFieldBinding
 

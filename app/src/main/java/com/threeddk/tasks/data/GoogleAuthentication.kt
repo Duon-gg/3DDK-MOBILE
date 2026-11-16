@@ -1,4 +1,6 @@
 package com.threeddk.tasks.data
+import com.threeddk.tasks.BuildConfig
+import com.threeddk.tasks.R
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -8,8 +10,6 @@ import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
-import com.threeddk.tasks.BuildConfig
-import com.threeddk.tasks.R
 
 @SuppressLint("DiscouragedApi")
 fun googleWebClientId(context:Context):String {

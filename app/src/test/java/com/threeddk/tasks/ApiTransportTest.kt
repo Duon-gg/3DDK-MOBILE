@@ -1,5 +1,6 @@
 package com.threeddk.tasks
-import com.threeddk.tasks.data.*
+import com.threeddk.tasks.data.ApiException
+import com.threeddk.tasks.data.ApiTransport
 import com.google.gson.JsonObject
 import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockResponse

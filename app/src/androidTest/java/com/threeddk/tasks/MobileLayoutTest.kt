@@ -1,4 +1,5 @@
 package com.threeddk.tasks
+import com.threeddk.tasks.model.text
 
 import android.content.Context
 import android.content.res.Configuration
@@ -54,6 +55,7 @@ class MobileLayoutTest {
    b.sync.text="Đã cập nhật"
    b.summary.text=context.getString(R.string.mobile_workspaces_count,3)
    b.homeTabs.visibility=View.VISIBLE
+   b.homeTabScroll.visibility=View.VISIBLE
    b.homeTabs.check(R.id.spaces_tab)
    b.empty.visibility=View.GONE
    measurePhone(b.root,context)
@@ -61,8 +63,13 @@ class MobileLayoutTest {
    assertTrue("Workspace list must retain a usable viewport",b.list.height>100)
    assertTrue("Summary must not overlap actions",b.summary.top>=b.actions.bottom)
    assertTrue("List must begin below the summary",b.list.top>=b.summary.bottom)
-   listOf(b.homeSearch,b.add,b.refresh,b.recentTab,b.starredTab,b.spacesTab).forEach { button ->
+   listOf(b.homeSearch,b.add,b.refresh).forEach { button ->
     assertTouchTarget(button,context)
+    assertInside(b.root,button)
+   }
+   listOf(b.recentTab,b.starredTab,b.spacesTab).forEach { button ->
+    assertTouchTarget(button,context)
+    b.homeTabScroll.scrollTo((button.right-b.homeTabScroll.width).coerceAtLeast(0),0)
     assertInside(b.root,button)
    }
    assertInside(b.root,b.summary)

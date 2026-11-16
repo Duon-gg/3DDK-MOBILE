@@ -1,4 +1,5 @@
-package com.threeddk.tasks
+package com.threeddk.tasks.viewmodel
+import com.threeddk.tasks.R
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -15,4 +16,10 @@ class AuthEntryViewModel(private val state: SavedStateHandle) : ViewModel() {
         if (passwordStep.value) state["passwordStep"] = false
         else state["screen"] = "WELCOME"
     }
+  val pages=listOf(
+   Triple(R.string.welcome_one,R.string.welcome_one_detail,R.drawable.welcome_workspace),
+   Triple(R.string.welcome_two,R.string.welcome_two_detail,R.drawable.welcome_progress),
+   Triple(R.string.welcome_three,R.string.welcome_three_detail,R.drawable.welcome_team)
+  )
+
 }

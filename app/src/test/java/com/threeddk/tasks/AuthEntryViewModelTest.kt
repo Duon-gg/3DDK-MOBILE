@@ -1,4 +1,5 @@
 package com.threeddk.tasks
+import com.threeddk.tasks.viewmodel.AuthEntryViewModel
 
 import androidx.lifecycle.SavedStateHandle
 import org.junit.Assert.*

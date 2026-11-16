@@ -1,4 +1,6 @@
 package com.threeddk.tasks
+import com.threeddk.tasks.model.text
+import com.threeddk.tasks.data.googleWebClientId
 
 import android.accessibilityservice.AccessibilityService
 import android.util.Patterns
@@ -13,7 +15,6 @@ import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.matcher.ViewMatchers.*
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.threeddk.tasks.data.googleWebClientId
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.tasks.await
 import org.junit.Assert.assertEquals

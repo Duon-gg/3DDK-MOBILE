@@ -1,4 +1,6 @@
 package com.threeddk.tasks.data
+import com.threeddk.tasks.model.text
+import com.threeddk.tasks.repository.WorkspaceRepository
 
 import com.google.gson.JsonParser
 

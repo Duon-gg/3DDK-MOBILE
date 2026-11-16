@@ -1,4 +1,7 @@
 package com.threeddk.tasks
+import com.threeddk.tasks.model.objects
+import com.threeddk.tasks.model.text
+import com.threeddk.tasks.repository.TaskRepository
 
 import android.os.Bundle
 import androidx.test.core.app.*
@@ -11,7 +14,7 @@ import androidx.test.espresso.action.ViewActions.closeSoftKeyboard
 import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.matcher.ViewMatchers.*
 import androidx.navigation.fragment.NavHostFragment
-import com.threeddk.tasks.data.*
+import com.threeddk.tasks.data.ApiException
 import com.google.gson.JsonObject
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.first

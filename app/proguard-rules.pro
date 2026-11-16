@@ -2,3 +2,6 @@
 -keep class com.threeddk.tasks.data.** { *; }
 -keepattributes Signature,RuntimeVisibleAnnotations,AnnotationDefault
 
+
+-keep class com.threeddk.tasks.model.** { *; }
+-keep class com.threeddk.tasks.viewmodel.TaskEditorState { *; }

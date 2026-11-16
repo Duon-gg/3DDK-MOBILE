@@ -1,6 +1,7 @@
 package com.threeddk.tasks
+import com.threeddk.tasks.viewmodel.matchingPickerIndices
+import com.threeddk.tasks.viewmodel.refreshedViewQuery
 
-import com.threeddk.tasks.ui.matchingPickerIndices
 import org.junit.Assert.*
 import org.junit.Test
 import com.google.gson.JsonParser
