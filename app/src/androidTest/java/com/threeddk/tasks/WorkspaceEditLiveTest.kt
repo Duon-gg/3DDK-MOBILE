@@ -1,4 +1,6 @@
 package com.threeddk.tasks
+import com.threeddk.tasks.model.objects
+import com.threeddk.tasks.model.text
 
 import android.widget.EditText
 import androidx.test.core.app.*
@@ -10,7 +12,6 @@ import androidx.test.espresso.action.ViewActions.*
 import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.matcher.ViewMatchers.*
 import androidx.navigation.fragment.NavHostFragment
-import com.threeddk.tasks.data.*
 import com.google.gson.JsonObject
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.first

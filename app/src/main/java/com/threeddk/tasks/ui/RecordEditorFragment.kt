@@ -1,4 +1,10 @@
 package com.threeddk.tasks.ui
+import com.threeddk.tasks.R
+import com.threeddk.tasks.model.Row
+import com.threeddk.tasks.model.objects
+import com.threeddk.tasks.model.text
+import com.threeddk.tasks.viewmodel.RecordViewModel
+import com.threeddk.tasks.adapter.RowAdapter
 
 import android.app.DatePickerDialog
 import android.os.Bundle
@@ -15,9 +21,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputLayout
 import com.google.gson.JsonObject
-import com.threeddk.tasks.R
-import com.threeddk.tasks.RecordViewModel
-import com.threeddk.tasks.data.*
 import com.threeddk.tasks.databinding.*
 import java.time.LocalDate
 
@@ -117,7 +120,7 @@ class RecordEditorFragment:Fragment(){
     "CHECKBOX"->{f.inputBox.isVisible=false;f.check.isVisible=true;f.check.text=field.text("name");f.check.isChecked=value=="true";f.check.isEnabled=vm.writable;f.check.setOnCheckedChangeListener{_,checked->vm.change(id,checked.toString())}}
     "SELECT"->{
      f.inputBox.isVisible=false;f.options.isVisible=true;f.options.isEnabled=vm.writable
-     val configured=field.getAsJsonArray("options").map{it.asString};val options=listOf("")+configured+if(value.isNotBlank()&&value !in configured)listOf(value) else emptyList()
+     val configured=field.getAsJsonArray("options").map{it.asString};val options=vm.selectOptions(field,value)
      val labels=options.map{if(it.isEmpty())getString(R.string.p0_cell_empty) else if(it !in configured)getString(R.string.p0_old_option,it) else it}
      f.options.adapter=ArrayAdapter(requireContext(),android.R.layout.simple_spinner_dropdown_item,labels);f.options.setSelection(options.indexOf(value).coerceAtLeast(0))
      f.options.onItemSelectedListener=object:AdapterView.OnItemSelectedListener{override fun onItemSelected(p:AdapterView<*>?,v:View?,position:Int,row:Long){val next=options[position];if(next!=(vm.raw.get(id)?.takeUnless{it.isJsonNull}?.asString?:""))vm.change(id,next)};override fun onNothingSelected(p:AdapterView<*>?){} }
@@ -137,14 +140,14 @@ class RecordEditorFragment:Fragment(){
     else->{if(field.text("type")=="NUMBER")f.input.inputType=InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL or InputType.TYPE_NUMBER_FLAG_SIGNED;f.input.doAfterTextChanged{vm.change(id,it.toString())}}
    };b.fields.addView(f.root)
   }
-  val fields=table.objects("fields");val orphan=vm.raw.entrySet().filter{(id,_)->fields.none{it.text("id")==id}}
+  val orphan=vm.orphanValues()
   if(orphan.isNotEmpty())b.fields.addView(TextView(requireContext()).apply{text=getString(R.string.p0_orphan_draft,orphan.joinToString("\n"){(id,value)->id+": "+cellLabel(requireContext(),null,value,emptyList())});setTextIsSelectable(true);setPadding(0,16,0,16)})
   updateEnabled()
  }
  private fun memberPicker(members:List<JsonObject>,done:(String)->Unit){
   val b=DialogMemberPickerBinding.inflate(layoutInflater);val d=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.p0_chon_nguoi_phu_trach)).setView(b.root).setNeutralButton(getString(R.string.p0_bo_phan_cong)){_,_->done("")}.setNegativeButton(getString(R.string.p0_huy),null).create();dialog=d
   val adapter=RowAdapter{uid->done(uid);d.dismiss()};b.members.layoutManager=LinearLayoutManager(requireContext());b.members.adapter=adapter
-  fun show(query:String){val rows=members.filter{it.text("displayName").contains(query,true)}.map{Row(it.text("uid"),it.text("displayName"),roleLabel(requireContext(),it.text("role")))};adapter.submitList(rows);b.empty.isVisible=rows.isEmpty()}
+  fun show(query:String){val rows=vm.matchingMembers(members,query).map{Row(it.text("uid"),it.text("displayName"),roleLabel(requireContext(),it.text("role")))};adapter.submitList(rows);b.empty.isVisible=rows.isEmpty()}
   b.search.doAfterTextChanged{show(it.toString())};show("");d.setOnDismissListener{b.members.adapter=null};d.show()
  }
  private fun resolveConflict(){

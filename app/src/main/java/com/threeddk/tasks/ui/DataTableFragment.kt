@@ -1,4 +1,12 @@
 package com.threeddk.tasks.ui
+import com.threeddk.tasks.adapter.GridAdapter
+import com.threeddk.tasks.adapter.gridCell
+import com.threeddk.tasks.model.objects
+import com.threeddk.tasks.model.text
+import com.threeddk.tasks.viewmodel.WorkspaceViewModel
+import com.threeddk.tasks.viewmodel.filterOperators
+import com.threeddk.tasks.viewmodel.matchingPickerIndices
+import com.threeddk.tasks.adapter.RecordCardAdapter
 
 import android.app.DatePickerDialog
 import android.os.Bundle
@@ -17,8 +25,8 @@ import androidx.navigation.navOptions
 import androidx.recyclerview.widget.*
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.gson.*
-import com.threeddk.tasks.*
-import com.threeddk.tasks.data.*
+import com.threeddk.tasks.R
+import com.threeddk.tasks.data.recentBases
 import com.threeddk.tasks.databinding.*
 import java.time.LocalDate
 
@@ -39,8 +47,7 @@ class DataTableFragment:Fragment(){
  override fun onCreateView(i:LayoutInflater,c:ViewGroup?,s:Bundle?)=FragmentDataTableBinding.inflate(i,c,false).also{binding=it}.root
  override fun onViewCreated(v:View,s:Bundle?){
   val b=binding!!
-  if(basePath.isNotBlank())viewLifecycleOwner.lifecycleScope.launch{
-   val name=baseName.ifBlank{vm.repo.cached(basePath)?.text("name").orEmpty()}
+  if(basePath.isNotBlank())vm.baseTitle(basePath,baseName){name->
    if(name.isNotBlank()&&binding===b&&findNavController().currentDestination?.id==R.id.dataTable){
     (requireActivity() as androidx.appcompat.app.AppCompatActivity).supportActionBar?.title=name
    }
@@ -87,15 +94,13 @@ class DataTableFragment:Fragment(){
    b.empty.isVisible=vm.accessDenied.value||adapter.currentList.isEmpty();b.empty.text=if(vm.accessDenied.value)getString(R.string.p0_access_revoked) else if(vm.busy.value)getString(R.string.p0_dang_tai_du_lieu) else getString(R.string.p0_chua_co_du_lieu_tren_thiet_bi_ket);return
   }
   b.add.isVisible=data.text("role")!="VIEWER"
-  val fields=data.objects("fields");val ids=vm.queryConfig.getAsJsonArray("fieldIds")?.map{it.asString}.orEmpty()
-  val order=vm.queryConfig.getAsJsonArray("fieldOrder")?.map{it.asString}.orEmpty()+fields.map{it.text("id")}
-  val shown=order.distinct().mapNotNull{id->fields.firstOrNull{it.text("id")==id&&(ids.isEmpty()||id in ids)}}
+  val fields=data.objects("fields");val shown=vm.displayedFields()
   val primary=fields.firstOrNull()?.takeIf{it.text("type")=="TEXT"&&it in shown&&shown.size>1}
   val gridFields=shown.filter{it!=primary}
   adapter.members=data.objects("members")
   cardAdapter.members=adapter.members
   val signature=shown.toString()+primary.toString()+adapter.members.toString()
-  if(schema!=signature||b.header.childCount==0){schema=signature;b.header.removeAllViews();gridFields.forEach{b.header.addView(gridCell(it.text("name"),it.text("type"),true))};adapter.fields=gridFields;adapter.primary=primary;cardAdapter.fields=shown;adapter.notifyDataSetChanged();cardAdapter.notifyDataSetChanged()}
+  if(schema!=signature||b.header.childCount==0){schema=signature;b.header.removeAllViews();gridFields.forEach{b.header.addView(gridCell(requireContext(),it.text("name"),it.text("type"),true))};adapter.fields=gridFields;adapter.primary=primary;cardAdapter.fields=shown;adapter.notifyDataSetChanged();cardAdapter.notifyDataSetChanged()}
   val records=data.objects("records");adapter.submitList(records);cardAdapter.submitList(records);b.empty.isVisible=records.isEmpty()
   val filtered=b.search.text?.isNotBlank()==true||conditions().isNotEmpty()
   b.empty.text=if(data.get("queryCached")?.asBoolean!=true)getString(R.string.p0_query_not_cached) else if(filtered)getString(R.string.p0_khong_co_dong_phu_hop_thu_doi_tim) else getString(R.string.p0_chua_co_dong_trong_du_lieu_da_tai)
@@ -189,8 +194,7 @@ class DataTableFragment:Fragment(){
  }
  override fun onOptionsItemSelected(item:MenuItem):Boolean{when(item.itemId){R.id.display_mode->{showCards=!showCards;updatePresentation();requireActivity().invalidateOptionsMenu()};R.id.toggle_table_star->if(!vm.accessDenied.value)vm.toggleBaseStar(basePath);10->addField();11->saveView();12->updateView();13->drafts();else->return super.onOptionsItemSelected(item)};return true}
  private fun drafts(){
-  val items=vm.drafts.value;val firstField=vm.data.value?.objects("fields")?.firstOrNull()?.text("id")
-  val labels=items.mapIndexed{index,draft->runCatching{JsonParser.parseString(draft.description).asJsonObject.text(firstField.orEmpty()).take(100)}.getOrDefault("").ifBlank{getString(R.string.p0_new_row_number,index+1)}}.toTypedArray()
+  val items=vm.drafts.value;val labels=vm.draftLabels()
   dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.p0_ban_nhap_chua_gui_len_bang)).setItems(labels){_,index->
    val draft=items[index]
    dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(labels[index]).setPositiveButton(getString(R.string.p0_tiep_tuc_soan)){_,_->edit("new/"+draft.taskId.substringAfterLast('/'))}.setNeutralButton(getString(if(draft.pendingCreateJson.isBlank())R.string.p0_xoa_nhap else R.string.p0_check_previous_submit)){_,_->
@@ -200,15 +204,15 @@ class DataTableFragment:Fragment(){
    }.setNegativeButton(getString(R.string.p0_dong),null).show()
   }.setNegativeButton(getString(R.string.p0_dong),null).show()
  }
- private fun editableView()=vm.data.value?.objects("views")?.firstOrNull{it.text("id")==vm.selectedViewId.value&&(vm.data.value?.text("role")=="OWNER"||it.text("visibility")=="PERSONAL")}
- private fun conditions()=vm.queryConfig.getAsJsonObject("filter")?.objects("conditions").orEmpty()
- private fun sortItems()=vm.queryConfig.objects("sort")
- private fun applyConditions(items:List<JsonObject>){val op=vm.queryConfig.getAsJsonObject("filter")?.text("op")?.takeIf{it=="or"}?:"and";vm.queryTable(filter=JsonObject().apply{addProperty("op",op);add("conditions",Gson().toJsonTree(items))});render()}
+ private fun editableView()=vm.editableView()
+ private fun conditions()=vm.conditions()
+ private fun sortItems()=vm.sorts()
+ private fun applyConditions(items:List<JsonObject>){vm.applyConditions(items);render()}
  private fun fieldName(id:String)=vm.data.value?.objects("fields")?.firstOrNull{it.text("id")==id}?.text("name")?:id
  private fun filters(){
   val items=conditions()
   dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(if(vm.queryConfig.getAsJsonObject("filter")?.text("op")=="or")R.string.p0_filter_or else R.string.p0_loc_thoa_tat_ca_dieu_kien)).setItems(items.map{fieldName(it.text("fieldId"))+" "+operatorLabel(requireContext(),it.text("operator"))+" "+(it.get("value")?.let{v->cellLabel(requireContext(),null,v,vm.data.value?.objects("members").orEmpty())}?:"")}.toTypedArray()){_,index->
-   dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.p0_xoa_dieu_kien_nay)).setPositiveButton(getString(R.string.p0_xoa)){_,_->applyConditions(items.filterIndexed{i,_->i!=index})}.setNegativeButton(getString(R.string.p0_huy),null).show()
+   dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.p0_xoa_dieu_kien_nay)).setPositiveButton(getString(R.string.p0_xoa)){_,_->vm.removeCondition(index)}.setNegativeButton(getString(R.string.p0_huy),null).show()
   }.setPositiveButton(getString(R.string.p0_them_dieu_kien)){_,_->if(items.size<10)chooseField(::chooseOperator) else binding?.status?.text=getString(R.string.p0_toi_da_10_dieu_kien_trong_giao_dien)}.setNeutralButton(getString(R.string.p0_xoa_tat_ca)){_,_->applyConditions(emptyList())}.setNegativeButton(getString(R.string.p0_dong),null).show()
  }
  private fun chooseField(done:(JsonObject)->Unit){
@@ -216,13 +220,10 @@ class DataTableFragment:Fragment(){
   dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.p0_chon_cot)).setItems(fields.map{it.text("name")}.toTypedArray()){_,index->done(fields[index])}.setNegativeButton(getString(R.string.p0_huy),null).show()
  }
  private fun chooseOperator(field:JsonObject){
-  val operators=mutableListOf("eq","ne","isEmpty")
-  if(field.text("type")=="TEXT")operators.add("contains")
-  if(field.text("type") in listOf("NUMBER","DATE"))operators.addAll(listOf("lt","lte","gt","gte"))
-  if(field.text("type")=="USER")operators.add("isMe")
+  val operators=filterOperators(field.text("type"))
   dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(field.text("name")).setItems(operators.map{operatorLabel(requireContext(),it)}.toTypedArray()){_,index->
    val op=operators[index]
-   fun apply(value:JsonElement?){applyConditions(conditions()+JsonObject().apply{addProperty("fieldId",field.text("id"));addProperty("operator",op);if(value!=null)add("value",value)})}
+   fun apply(value:JsonElement?){vm.addCondition(field.text("id"),op,value)}
    if(op in listOf("isEmpty","isMe"))apply(null) else filterValue(field,::apply)
   }.setNegativeButton(getString(R.string.p0_huy),null).show()
  }
@@ -240,14 +241,14 @@ class DataTableFragment:Fragment(){
  }
  private fun sorts(){
   val items=sortItems()
-  dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.p0_sap_xep_o_trong_o_cuoi)).setItems(items.map{fieldName(it.text("fieldId"))+if(it.text("direction")=="desc")getString(R.string.p0_giam_dan) else getString(R.string.p0_tang_dan)}.toTypedArray()){_,index->vm.queryTable(sort=Gson().toJsonTree(items.filterIndexed{i,_->i!=index}).asJsonArray);render()}
-   .setPositiveButton(getString(R.string.p0_them_cot)){_,_->if(items.size<3)chooseField{field->dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(field.text("name")).setItems(arrayOf(getString(R.string.p0_tang_dan_2),getString(R.string.p0_giam_dan_2))){_,direction->val next=items.filter{it.text("fieldId")!=field.text("id")}+JsonObject().apply{addProperty("fieldId",field.text("id"));addProperty("direction",if(direction==0)"asc" else "desc")};vm.queryTable(sort=Gson().toJsonTree(next).asJsonArray);render()}.setNegativeButton(getString(R.string.p0_huy),null).show()} else binding?.status?.text=getString(R.string.p0_toi_da_3_cot_sap_xep)}
+  dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.p0_sap_xep_o_trong_o_cuoi)).setItems(items.map{fieldName(it.text("fieldId"))+if(it.text("direction")=="desc")getString(R.string.p0_giam_dan) else getString(R.string.p0_tang_dan)}.toTypedArray()){_,index->vm.removeSort(index);render()}
+   .setPositiveButton(getString(R.string.p0_them_cot)){_,_->if(items.size<3)chooseField{field->dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(field.text("name")).setItems(arrayOf(getString(R.string.p0_tang_dan_2),getString(R.string.p0_giam_dan_2))){_,direction->vm.addSort(field.text("id"),direction==1);render()}.setNegativeButton(getString(R.string.p0_huy),null).show()} else binding?.status?.text=getString(R.string.p0_toi_da_3_cot_sap_xep)}
    .setNeutralButton(getString(R.string.p0_xoa_tat_ca)){_,_->vm.queryTable(sort=JsonArray());render()}.setNegativeButton(getString(R.string.p0_dong),null).show()
  }
  private fun columns(){
   val fields=vm.data.value?.objects("fields").orEmpty();val selected=vm.queryConfig.getAsJsonArray("fieldIds")?.map{it.asString}.orEmpty();val checked=BooleanArray(fields.size){selected.isEmpty()||fields[it].text("id") in selected}
   val d=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.p0_cot_hien_thi)).setMultiChoiceItems(fields.map{it.text("name")}.toTypedArray(),checked){_,index,value->checked[index]=value}.setPositiveButton(getString(R.string.p0_ap_dung),null).setNegativeButton(getString(R.string.p0_huy),null).create();dialog=d
-  d.setOnShowListener{d.getButton(-1).setOnClickListener{if(checked.none{it}){binding?.status?.text=getString(R.string.p0_chon_it_nhat_mot_cot);return@setOnClickListener};vm.queryTable(fieldIds=Gson().toJsonTree(fields.filterIndexed{i,_->checked[i]}.map{it.text("id")}).asJsonArray);render();d.dismiss()}};d.show()
+  d.setOnShowListener{d.getButton(-1).setOnClickListener{if(checked.none{it}){binding?.status?.text=getString(R.string.p0_chon_it_nhat_mot_cot);return@setOnClickListener};vm.selectColumns(fields,checked);render();d.dismiss()}};d.show()
  }
  private fun saveView(){
   val b=DialogInputBinding.inflate(layoutInflater);b.valueBox.hint=getString(R.string.p0_ten_che_do_xem);b.extraBox.isVisible=false
@@ -258,98 +259,22 @@ class DataTableFragment:Fragment(){
  private fun updateView(){
   val view=editableView()?:return
   dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.p0_update_view_title,view.text("name"))).setMessage(if(view.text("visibility")=="SHARED")getString(R.string.p0_bo_loc_sap_xep_va_cot_moi_se) else getString(R.string.p0_luu_cau_hinh_hien_tai_vao_che_do)).setPositiveButton(getString(R.string.p0_luu)){_,_->
-   val payload=JsonObject().apply{listOf("filter","sort","fieldIds","fieldOrder").forEach{key->vm.queryConfig.get(key)?.let{add(key,it.deepCopy())}};addProperty("expectedVersion",view.get("version")?.asInt?:1)}
-   vm.mutate("PATCH","$path/views/${view.text("id")}",payload){vm.selectView(view.text("id"))}
+   vm.updateSelectedView()
   }.setNegativeButton(getString(R.string.p0_huy),null).show()
  }
  private fun addField(){
   val b=DialogInputBinding.inflate(layoutInflater);b.valueBox.hint=getString(R.string.p0_ten_cot)
-  val types=listOf("TEXT","NUMBER","DATE","CHECKBOX","SELECT")+if(vm.supports("userFields"))listOf("USER") else emptyList()
+  val types=vm.fieldTypes()
   b.choice.adapter=ArrayAdapter(requireContext(),android.R.layout.simple_spinner_dropdown_item,listOf(getString(R.string.p0_van_ban),getString(R.string.p0_so),getString(R.string.p0_ngay),getString(R.string.p0_danh_dau),getString(R.string.p0_lua_chon))+if(types.contains("USER"))listOf(getString(R.string.p0_thanh_vien_phu_trach)) else emptyList())
   b.choice.onItemSelectedListener=object:AdapterView.OnItemSelectedListener{override fun onItemSelected(p:AdapterView<*>?,v:View?,position:Int,id:Long){b.extraBox.isVisible=position==4};override fun onNothingSelected(p:AdapterView<*>?){} }
   val d=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.p0_them_cot_tuy_chinh)).setView(b.root).setPositiveButton(getString(R.string.p0_them),null).setNegativeButton(getString(R.string.p0_huy),null).create();dialog=d
   d.setOnShowListener{d.getButton(-1).setOnClickListener{
-   val name=b.value.text.toString().trim();if(name.length !in 1..100){b.valueBox.error=getString(R.string.p0_nhap_ten_tu_1_den_100_ky_tu);return@setOnClickListener}
-   val options=b.extra.text.toString().split(',').map{it.trim()}.filter{it.isNotEmpty()}.distinct()
-   if(b.choice.selectedItemPosition==4&&(options.isEmpty()||options.size>30||options.any{it.length>100})){b.extraBox.error=getString(R.string.p0_nhap_tu_1_den_30_lua_chon_moi);return@setOnClickListener}
-   vm.mutate("POST","$path/fields",JsonObject().apply{addProperty("name",name);addProperty("type",types[b.choice.selectedItemPosition]);add("options",Gson().toJsonTree(options));addProperty("expectedSchemaVersion",vm.data.value?.get("schemaVersion")?.asInt?:1)}){if(isAdded)d.dismiss()}
+   val error=vm.createField(b.value.text.toString(),types[b.choice.selectedItemPosition],b.extra.text.toString()){if(isAdded)d.dismiss()}
+   b.valueBox.error=null;b.extraBox.error=null
+   if(error!=null){if(error==R.string.p0_nhap_ten_tu_1_den_100_ky_tu)b.valueBox.error=getString(error) else b.extraBox.error=getString(error)}
+
   }};d.show()
  }
- private fun gridCell(value:String,type:String,header:Boolean=false)=TextView(requireContext()).apply{
-  val density=resources.displayMetrics.density
-  val horizontalInset=(10*density).toInt()
-  val verticalInset=((if(header) 4 else 8)*density).toInt()
-  val columnWidth=when(type){
-   "TEXT"->200
-   "NUMBER","CHECKBOX"->120
-   else->150
-  }
-  if(!header)setBackgroundResource(R.drawable.grid_cell_background)
-  text=value;textSize=if(header)12f else 13f;setPadding(horizontalInset,verticalInset,horizontalInset,verticalInset)
-  minHeight=((if(header)32 else 40)*density).toInt();gravity=Gravity.CENTER_VERTICAL;maxLines=if(header)1 else 4
-  ellipsize=android.text.TextUtils.TruncateAt.END
-  layoutParams=LinearLayout.LayoutParams((columnWidth*density).toInt(),if(header) ViewGroup.LayoutParams.WRAP_CONTENT else ViewGroup.LayoutParams.MATCH_PARENT)
-  if(header)setTextColor(com.google.android.material.color.MaterialColors.getColor(this,com.google.android.material.R.attr.colorOnSurfaceVariant))
- }
- private inner class GridAdapter(val click:(String)->Unit):androidx.recyclerview.widget.ListAdapter<JsonObject,GridHolder>(object:DiffUtil.ItemCallback<JsonObject>(){
-  override fun areItemsTheSame(a:JsonObject,b:JsonObject)=a.text("id")==b.text("id")
-  override fun areContentsTheSame(a:JsonObject,b:JsonObject)=a==b
- }){
-  var fields=emptyList<JsonObject>()
-  var members=emptyList<JsonObject>()
-  var primary:JsonObject?=null
-
-  override fun onCreateViewHolder(parent:ViewGroup,type:Int):GridHolder {
-   val density=parent.resources.displayMetrics.density
-   val root=LinearLayout(parent.context).apply{
-    orientation=LinearLayout.VERTICAL
-    layoutParams=RecyclerView.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,ViewGroup.LayoutParams.WRAP_CONTENT).apply{
-     topMargin=(6*density).toInt()
-     marginStart=(12*density).toInt()
-    }
-    isClickable=true
-    isFocusable=true
-    setBackgroundResource(R.drawable.grid_record_background)
-    clipToOutline=true
-   }
-   val title=TextView(parent.context).apply{
-    textSize=14f
-    setTextColor(com.google.android.material.color.MaterialColors.getColor(this,com.google.android.material.R.attr.colorOnSurfaceVariant))
-    maxLines=1
-    ellipsize=android.text.TextUtils.TruncateAt.END
-    gravity=Gravity.CENTER_VERTICAL
-    minHeight=(30*density).toInt()
-    val inset=(12*density).toInt()
-    setPadding(inset,0,inset,0)
-    importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO
-   }
-   val line=LinearLayout(parent.context).apply{
-    orientation=LinearLayout.HORIZONTAL
-    isBaselineAligned=false
-   }
-   root.addView(title,ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT)
-   root.addView(line,ViewGroup.LayoutParams.WRAP_CONTENT,ViewGroup.LayoutParams.WRAP_CONTENT)
-   return GridHolder(root,title,line)
-  }
-
-  override fun onBindViewHolder(holder:GridHolder,position:Int){
-   val row=getItem(position)
-   val cells=row.getAsJsonObject("cells")?:JsonObject()
-   val primaryField=primary
-   holder.title.isVisible=primaryField!=null
-   holder.title.text=primaryField?.let{cellLabel(requireContext(),it,cells.get(it.text("id")),members)}.orEmpty()
-   holder.line.removeAllViews()
-   fields.forEach{field->
-    val value=cellLabel(requireContext(),field,cells.get(field.text("id")),members)
-    holder.line.addView(gridCell(value,field.text("type")))
-   }
-   holder.root.contentDescription=(listOfNotNull(primaryField)+fields).joinToString(", "){field->
-    field.text("name")+": "+cellLabel(requireContext(),field,cells.get(field.text("id")),members)
-   }
-   holder.root.setOnClickListener{click(row.text("id"))}
-  }
- }
- private class GridHolder(val root:LinearLayout,val title:TextView,val line:LinearLayout):RecyclerView.ViewHolder(root)
  override fun onDestroyView(){dateDialog?.dismiss();dateDialog=null;dialog?.dismiss();dialog=null;binding?.grid?.adapter=null;binding?.cards?.adapter=null;binding=null;schema="";super.onDestroyView()}
 }
 
@@ -367,5 +292,3 @@ internal fun cellLabel(context:android.content.Context,field:JsonObject?,value:J
   else->text
  }
 }
-
-internal fun matchingPickerIndices(labels:List<String>,query:String)=labels.indices.filter{labels[it].contains(query.trim(),true)}

@@ -1,10 +1,19 @@
-package com.threeddk.tasks
+package com.threeddk.tasks.viewmodel
+import com.threeddk.tasks.R
+import com.threeddk.tasks.TasksApp
+import com.threeddk.tasks.model.friendlyError
+import com.threeddk.tasks.model.objects
+import com.threeddk.tasks.model.text
+import com.threeddk.tasks.repository.WorkspaceRepository
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.gson.*
-import com.threeddk.tasks.data.*
+import com.threeddk.tasks.data.ApiException
+import com.threeddk.tasks.data.Draft
+import com.threeddk.tasks.data.isTestWorkspace
+import com.threeddk.tasks.data.recentBases
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 
@@ -23,8 +32,8 @@ fun refreshedViewQuery(current:JsonObject,metadata:JsonObject,viewId:String?):Js
 }
 
 class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
- val session=(app as TasksApp).repository
- val repo=session.workspaces
+ private val session=(app as TasksApp).repository
+ private val repo=session.workspaces
  val home=MutableStateFlow<List<WorkspaceRepository.HomeTable>>(emptyList())
  val recentBases=MutableStateFlow<List<WorkspaceRepository.RecentBase>>(emptyList())
  val workspaceStars=MutableStateFlow<Set<String>>(emptySet())
@@ -212,4 +221,91 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
   if(!supports("atomicTemplates")){error.value="Máy chủ chưa hỗ trợ tạo bảng công việc an toàn. Hãy cập nhật backend trước.";return}
   mutate("POST","$path/tables",JsonObject().apply{addProperty("name",name);addProperty("template","TASKS")}){result->note.value="Đã tạo đầy đủ bảng công việc";done(result)}
  }
+
+ fun baseTitle(resource:String,fallback:String,done:(String)->Unit){
+  viewModelScope.launch{done(fallback.ifBlank{repo.cached(resource)?.text("name").orEmpty()})}
+ }
+
+
+ fun testSpaces(query:String)=data.value?.objects("items").orEmpty().filter{isTestWorkspace(it.text("name"))&&it.text("name").contains(query,true)}
+ fun filteredBases(query:String,starred:Boolean=false)=recentBases.value.filter{(!starred||it.starred)&&it.name.contains(query,true)}
+ fun starredSpaces(query:String)=data.value?.objects("items").orEmpty().filter{"workspaces/"+it.text("id") in workspaceStars.value&&it.text("name").contains(query,true)}
+ fun matchingItems(key:String,query:String)=data.value?.objects(key).orEmpty().filter{it.text("name").contains(query,true)}
+ fun sharedSpaces()=data.value?.objects("items").orEmpty().filter{it.text("role") in listOf("EDITOR","VIEWER")}
+ fun moveTargets(workspaces:JsonObject,base:JsonObject)=workspaces.objects("items").filter{it.text("role")=="OWNER"&&it.text("id")!=base.text("workspaceId")}
+ fun baseForActions(id:String,workspace:String)=recentBases.value.firstOrNull{it.path==id}?:data.value?.objects("bases")?.firstOrNull{"bases/"+it.text("id")==id}?.let{WorkspaceRepository.RecentBase(id,it.text("name"),0,workspaceId=workspace.substringAfter('/'))}
+ fun versionedMutation(method:String,target:String,base:JsonObject,extra:JsonObject=JsonObject(),done:(JsonObject)->Unit={}){
+  mutate(method,target,extra.deepCopy().apply{add("expectedVersion",base["version"])},done)
+ }
+ fun renameWorkspace(target:String,name:String,workspace:JsonObject,done:()->Unit){
+  if(name.trim().length !in 1..100){error.value="Nhập tên từ 1 đến 100 ký tự.";return}
+  versionedMutation("PATCH",target,workspace,JsonObject().apply{addProperty("name",name.trim())}){done()}
+ }
+ fun manageMember(target:String,member:JsonObject,action:Int){
+  val transfer=action==3
+  val versionMember=if(transfer)data.value?.objects("members")?.firstOrNull{it.text("role")=="OWNER"} else member
+  val payload=JsonObject().apply{addProperty("expectedVersion",versionMember?.get("version")?.asInt?:1);if(transfer)addProperty("targetUid",member.text("uid")) else if(action<2)addProperty("role",if(action==0)"EDITOR" else "VIEWER")}
+  mutate(if(action==2)"DELETE" else if(transfer)"POST" else "PATCH",if(transfer)"$target/transfer-ownership" else "$target/members/${member.text("uid")}",payload)
+ }
+ fun createResource(target:String,name:String,done:(JsonObject)->Unit){
+  if(name.trim().length !in 1..100){error.value="Nhập tên từ 1 đến 100 ký tự.";return}
+  val endpoint=if(target=="workspaces")target else if(target.startsWith("workspaces/"))"$target/bases" else "$target/tables"
+  mutate("POST",endpoint,JsonObject().apply{addProperty("name",name.trim())},done)
+ }
+
+
+ fun editableView()=data.value?.objects("views")?.firstOrNull{it.text("id")==selectedViewId.value&&(data.value?.text("role")=="OWNER"||it.text("visibility")=="PERSONAL")}
+ fun conditions()=queryConfig.getAsJsonObject("filter")?.objects("conditions").orEmpty()
+ fun sorts()=queryConfig.objects("sort")
+ fun applyConditions(items:List<JsonObject>){
+  val op=queryConfig.getAsJsonObject("filter")?.text("op")?.takeIf{it=="or"}?:"and"
+  queryTable(filter=JsonObject().apply{addProperty("op",op);add("conditions",Gson().toJsonTree(items))})
+ }
+ fun removeCondition(index:Int)=applyConditions(conditions().filterIndexed{i,_->i!=index})
+ fun addCondition(fieldId:String,operator:String,value:JsonElement?){
+  if(conditions().size>=10)return
+  applyConditions(conditions()+JsonObject().apply{addProperty("fieldId",fieldId);addProperty("operator",operator);if(value!=null)add("value",value)})
+ }
+ fun removeSort(index:Int)=queryTable(sort=Gson().toJsonTree(sorts().filterIndexed{i,_->i!=index}).asJsonArray)
+ fun addSort(fieldId:String,descending:Boolean){
+  val next=sorts().filter{it.text("fieldId")!=fieldId}+JsonObject().apply{addProperty("fieldId",fieldId);addProperty("direction",if(descending)"desc" else "asc")}
+  if(next.size<=3)queryTable(sort=Gson().toJsonTree(next).asJsonArray)
+ }
+ fun selectColumns(fields:List<JsonObject>,checked:BooleanArray){
+  if(checked.none{it})return
+  queryTable(fieldIds=Gson().toJsonTree(fields.filterIndexed{i,_->checked.getOrElse(i){false}}.map{it.text("id")}).asJsonArray)
+ }
+ fun updateSelectedView(){
+  val view=editableView()?:return
+  val payload=JsonObject().apply{listOf("filter","sort","fieldIds","fieldOrder").forEach{key->queryConfig.get(key)?.let{add(key,it.deepCopy())}};addProperty("expectedVersion",view.get("version")?.asInt?:1)}
+  mutate("PATCH","$path/views/${view.text("id")}",payload){selectView(view.text("id"))}
+ }
+ fun fieldTypes()=listOf("TEXT","NUMBER","DATE","CHECKBOX","SELECT")+if(supports("userFields"))listOf("USER") else emptyList()
+ fun createField(name:String,type:String,rawOptions:String,done:()->Unit):Int?{
+  if(name.trim().length !in 1..100)return R.string.p0_nhap_ten_tu_1_den_100_ky_tu
+  val options=rawOptions.split(',').map{it.trim()}.filter{it.isNotEmpty()}.distinct()
+  if(type=="SELECT"&&(options.isEmpty()||options.size>30||options.any{it.length>100}))return R.string.p0_nhap_tu_1_den_30_lua_chon_moi
+  if(type !in fieldTypes())return R.string.p0_nhap_ten_tu_1_den_100_ky_tu
+  mutate("POST","$path/fields",JsonObject().apply{addProperty("name",name.trim());addProperty("type",type);add("options",Gson().toJsonTree(options));addProperty("expectedSchemaVersion",data.value?.get("schemaVersion")?.asInt?:1)}){done()}
+  return null
+ }
+ fun draftLabels():Array<String>{
+  val firstField=data.value?.objects("fields")?.firstOrNull()?.text("id")
+  return drafts.value.mapIndexed{index,draft->runCatching{JsonParser.parseString(draft.description).asJsonObject.text(firstField.orEmpty()).take(100)}.getOrDefault("").ifBlank{getApplication<Application>().getString(R.string.p0_new_row_number,index+1)}}.toTypedArray()
+ }
+
+
+ fun normalSpaces(query:String)=matchingItems("items",query).filterNot{isTestWorkspace(it.text("name"))}
+ fun displayedFields():List<JsonObject>{
+  val fields=data.value?.objects("fields").orEmpty();val ids=queryConfig.getAsJsonArray("fieldIds")?.map{it.asString}.orEmpty()
+  val order=queryConfig.getAsJsonArray("fieldOrder")?.map{it.asString}.orEmpty()+fields.map{it.text("id")}
+  return order.distinct().mapNotNull{id->fields.firstOrNull{it.text("id")==id&&(ids.isEmpty()||id in ids)}}
+ }
+ fun duplicateBase(target:String,base:JsonObject,name:String,done:(JsonObject)->Unit)=versionedMutation("POST","$target/duplicate",base,JsonObject().apply{addProperty("name",name.trim())},done)
+ fun inviteMember(target:String,email:String,editor:Boolean,base:JsonObject?=null,done:()->Unit){
+  if(!android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()){error.value="Email chưa hợp lệ.";return}
+  val values=JsonObject().apply{addProperty("email",email.trim());addProperty("role",if(editor)"EDITOR" else "VIEWER");base?.get("version")?.let{add("expectedVersion",it)}}
+  mutate("POST","$target/invites",values){done()}
+ }
+
 }

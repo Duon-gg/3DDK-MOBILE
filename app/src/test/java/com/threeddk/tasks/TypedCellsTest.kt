@@ -1,4 +1,5 @@
 package com.threeddk.tasks
+import com.threeddk.tasks.viewmodel.typedCells
 import com.google.gson.JsonParser
 import org.junit.Assert.*
 import org.junit.Test

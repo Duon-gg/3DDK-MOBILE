@@ -8,7 +8,9 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
-import com.threeddk.tasks.*
+import com.threeddk.tasks.MainActivity
+import com.threeddk.tasks.R
+import com.threeddk.tasks.TasksApp
 import kotlinx.coroutines.*
 class TaskMessagingService:FirebaseMessagingService(){
  private val scope=CoroutineScope(SupervisorJob()+Dispatchers.IO)

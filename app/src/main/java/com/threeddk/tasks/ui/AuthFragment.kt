@@ -1,10 +1,16 @@
 package com.threeddk.tasks.ui
+import com.threeddk.tasks.R
+import com.threeddk.tasks.model.text
+import com.threeddk.tasks.viewmodel.AppViewModel
+import com.threeddk.tasks.viewmodel.AuthEntryViewModel
+import com.threeddk.tasks.adapter.WelcomeAdapter
+import com.threeddk.tasks.data.googleIdToken
+import com.threeddk.tasks.data.googleWebClientId
 import android.os.Bundle
 import androidx.activity.OnBackPressedCallback
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.PagerSnapHelper
-import com.threeddk.tasks.AuthEntryViewModel
 import com.threeddk.tasks.databinding.ItemWelcomeBinding
 import android.view.*
 import androidx.core.view.isVisible
@@ -14,10 +20,6 @@ import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.credentials.exceptions.NoCredentialException
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
-import com.threeddk.tasks.AppViewModel
-import com.threeddk.tasks.R
-import com.threeddk.tasks.data.googleIdToken
-import com.threeddk.tasks.data.googleWebClientId
 import com.threeddk.tasks.databinding.FragmentAuthBinding
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -27,22 +29,10 @@ class AuthFragment:Fragment(){
  private val entry:AuthEntryViewModel by viewModels()
  override fun onCreateView(inflater:LayoutInflater,container:ViewGroup?,state:Bundle?)=FragmentAuthBinding.inflate(inflater,container,false).also{binding=it}.root
  override fun onViewCreated(view:View,state:Bundle?){
-  val b=binding!!;b.email.setText(vm.repo.savedEmail());b.remember.isChecked=b.email.text?.isNotEmpty()==true
-  val pages=listOf(
-   Triple(R.string.welcome_one,R.string.welcome_one_detail,R.drawable.welcome_workspace),
-   Triple(R.string.welcome_two,R.string.welcome_two_detail,R.drawable.welcome_progress),
-   Triple(R.string.welcome_three,R.string.welcome_three_detail,R.drawable.welcome_team)
-  )
+  val b=binding!!;b.email.setText(vm.savedEmail());b.remember.isChecked=b.email.text?.isNotEmpty()==true
   val layout=LinearLayoutManager(requireContext(),RecyclerView.HORIZONTAL,false)
   b.welcomePages.layoutManager=layout
-  b.welcomePages.adapter=object:RecyclerView.Adapter<WelcomeHolder>(){
-   override fun getItemCount()=pages.size
-   override fun onCreateViewHolder(parent:ViewGroup,type:Int)=WelcomeHolder(ItemWelcomeBinding.inflate(layoutInflater,parent,false))
-   override fun onBindViewHolder(holder:WelcomeHolder,position:Int){
-    holder.b.title.setText(pages[position].first);holder.b.description.setText(pages[position].second)
-    holder.b.illustration.setImageResource(pages[position].third)
-   }
-  }
+  b.welcomePages.adapter=WelcomeAdapter(entry.pages)
   val snap=PagerSnapHelper();snap.attachToRecyclerView(b.welcomePages)
   fun indicator(index:Int){
    b.pageIndicator.text=(0..2).joinToString(" "){if(it==index)"●" else "○"}
@@ -116,14 +106,13 @@ class AuthFragment:Fragment(){
    when(session){
     "CONFIG"->b.status.text="Ứng dụng chưa được kết nối Firebase/Supabase.\n\nNhóm phát triển cần điền cấu hình trong local.properties rồi dựng lại APK. Xem README trong repository 3DDK-MOBILE."
     "AUTH"->{b.status.setText(R.string.auth_intro);b.login.text="Đăng nhập";b.register.text="Tạo tài khoản";b.reset.text="Quên mật khẩu"}
-    "VERIFY"->{b.status.text="Kiểm tra email ${vm.repo.auth?.currentUser?.email} và mở liên kết xác minh.";b.login.text="Tôi đã xác minh";b.register.text="Gửi lại email";b.reset.text="Đăng xuất"}
+    "VERIFY"->{b.status.text="Kiểm tra email ${vm.accountEmail} và mở liên kết xác minh.";b.login.text="Tôi đã xác minh";b.register.text="Gửi lại email";b.reset.text="Đăng xuất"}
     "BLOCKED"->{b.status.text="Tài khoản chưa được mời hoặc đã ngừng quyền. Liên hệ nhóm trưởng.";b.login.text="Kiểm tra lại quyền";b.register.text="Đăng xuất"}
    }
    renderEntry()
   }
   watch(vm.loading){buttons()}
  }
- private class WelcomeHolder(val b:ItemWelcomeBinding):RecyclerView.ViewHolder(b.root)
  override fun onDestroyView(){binding?.welcomePages?.adapter=null;binding=null;super.onDestroyView()}
 }
 

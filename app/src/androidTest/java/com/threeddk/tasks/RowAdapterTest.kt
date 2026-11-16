@@ -1,4 +1,6 @@
 package com.threeddk.tasks
+import com.threeddk.tasks.model.Row
+import com.threeddk.tasks.adapter.RowAdapter
 
 import android.view.View
 import androidx.recyclerview.widget.RecyclerView
@@ -6,15 +8,13 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.threeddk.tasks.ui.Row
-import com.threeddk.tasks.ui.RowAdapter
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class RowAdapterTest {
-    @Test fun homeRowsShowStarsAndOnlyBasesHandleLongPressAfterRebinding() {
+    @Test fun homeRowsShowStarsAndBaseAndWorkspaceMenusSurviveRebinding() {
         val longPressed = mutableListOf<String>()
         val clicked = mutableListOf<String>()
         val adapter = RowAdapter { clicked.add(it) }.apply {
@@ -28,7 +28,8 @@ class RowAdapterTest {
                     Row("workspaces/team", "Team", "Workspace", homeItem = true),
                     Row("ordinary", "Ordinary row", "Subtitle")
                 ))
-                val holder = adapter.onCreateViewHolder(RecyclerView(activity), 0)
+                val parent = RecyclerView(activity).apply { layoutManager = LinearLayoutManager(activity) }
+                val holder = adapter.onCreateViewHolder(parent, 0)
 
                 adapter.onBindViewHolder(holder, 0)
                 assertEquals(View.VISIBLE, holder.binding.star.visibility)
@@ -42,15 +43,15 @@ class RowAdapterTest {
                 assertEquals(listOf("bases/starred", "bases/recent"), longPressed)
 
                 adapter.onBindViewHolder(holder, 2)
-                assertFalse(holder.itemView.performLongClick())
-                assertEquals(listOf("bases/starred", "bases/recent"), longPressed)
+                assertTrue(holder.itemView.performLongClick())
+                assertEquals(listOf("bases/starred", "bases/recent", "workspaces/team"), longPressed)
 
                 adapter.onBindViewHolder(holder, 0)
                 adapter.onViewRecycled(holder)
                 adapter.onBindViewHolder(holder, 3)
                 assertEquals(View.GONE, holder.binding.star.visibility)
-                assertFalse(holder.itemView.performLongClick())
-                assertEquals(listOf("bases/starred", "bases/recent"), longPressed)
+                assertFalse(holder.itemView.isLongClickable)
+                assertEquals(listOf("bases/starred", "bases/recent", "workspaces/team"), longPressed)
                 assertTrue(holder.itemView.performClick())
                 assertEquals(listOf("bases/starred", "ordinary"), clicked)
             }
