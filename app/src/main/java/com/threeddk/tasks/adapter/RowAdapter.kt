@@ -75,4 +75,3 @@ class RowAdapter(private val click:(String)->Unit):ListAdapter<Row,RowAdapter.Ho
   super.onViewRecycled(holder)
  }
 }
-
