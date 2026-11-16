@@ -4,7 +4,7 @@ Dành cho bản Android và backend P0 tương ứng. Tài liệu mô tả thao 
 
 ## 1. Bắt đầu và tạo bảng công việc
 
-1. Đăng ký tài khoản bằng email thật, xác minh email rồi đăng nhập. Nút **Tiếp tục với Google** cần cấu hình Firebase theo [GOOGLE-SIGN-IN.md](GOOGLE-SIGN-IN.md) trước khi sử dụng.
+1. Trên APK dùng thử đã cấu hình, bấm **Tiếp tục với Google** rồi chọn tài khoản trên điện thoại. Có thể dùng cách đăng ký bằng email thật, xác minh email rồi đăng nhập. Nếu tự dựng mã nguồn trên máy khác, xem [cấu hình Google](GOOGLE-SIGN-IN.md) trước khi sử dụng nút Google.
 2. Trong **Không gian**, bấm **Tạo không gian** và nhập tên nhóm hoặc công ty.
 3. Sau khi tạo thành công, ứng dụng tự mở không gian mới. Bấm **Tạo cơ sở dữ liệu**. Đây là nơi chứa các bảng của một dự án.
 4. Ứng dụng mở cơ sở dữ liệu mới → **Tạo bảng**. Chủ không gian chọn **Bảng công việc (có sẵn cột)**, nhập tên và bấm **Tạo**.
@@ -34,7 +34,9 @@ Mở **⋮ → Lời mời đã gửi** để thu hồi lời mời đang chờ.
 4. Chạm **Người phụ trách**, tìm theo tên và chọn một thành viên. Có thể **Bỏ phân công** hoặc dùng biểu tượng xóa của ô.
 5. Bấm **Lưu lên bảng**. Nháp chỉ được xóa sau khi máy chủ xác nhận lưu thành công.
 
-Chạm một dòng trong bảng để sửa. Các thay đổi khi nhập được lưu thành **nháp trên máy**, chưa tự gửi cho mọi người. Người có quyền chỉ xem không có nút thêm hoặc lưu dữ liệu.
+Trên giao diện mobile, bảng mở bằng **thẻ**. Mỗi thẻ có tiêu đề và tối đa ba thông tin xem trước; hạn, người phụ trách và trạng thái được ưu tiên nếu các cột đó đang hiển thị. Chạm thẻ để mở form sửa toàn màn hình. Bấm biểu tượng **Xem dạng bảng** trên thanh tiêu đề để xem các cột ngang; bấm **Xem dạng thẻ** để quay lại. Đây là hai cách hiển thị cùng dữ liệu, không tạo bảng hoặc bản ghi mới.
+
+Các thay đổi khi nhập được lưu thành **nháp trên máy**, chưa tự gửi cho mọi người. Người có quyền chỉ xem không có nút thêm hoặc lưu dữ liệu. Trong màn hình con, dùng nút **←** hoặc Back để trở lại; ba tab Không gian/Lời mời/Cá nhân xuất hiện ở màn hình chính.
 
 Nếu mất kết nối khi tạo dòng và chưa biết máy chủ đã nhận chưa, ứng dụng khóa ô nhập và hiện **Thử gửi lại**. Bấm nút này để xác nhận lại đúng lần tạo trước, tránh tạo trùng. Có thể **⋮ → Sao chép bản nháp**. Không có thao tác xóa nháp đang chờ xác nhận; mở nháp để kiểm tra lần gửi trước.
 
@@ -42,7 +44,7 @@ Các cột **Người phụ trách** kiểu cũ nhập bằng chữ vẫn giữ 
 
 ## 4. Tìm, lọc, sắp xếp và chọn cột
 
-- **Tìm trong bảng:** nhập từ khóa; ứng dụng đợi một khoảng ngắn rồi tìm trên máy chủ. Khi có nút **Tải thêm dòng**, bấm để xem trang tiếp theo.
+- **Tìm trong bảng:** bấm **Tìm** để mở ô nhập từ khóa; ứng dụng đợi một khoảng ngắn rồi tìm trên máy chủ. Nút **Tìm (1)** cho biết đang có từ khóa, kể cả khi ô nhập được thu gọn. Mở ô và xóa từ khóa để bỏ tìm kiếm. Khi có nút **Tải thêm dòng**, bấm để xem trang tiếp theo.
 - **Lọc:** bấm **Lọc → Thêm điều kiện** → chọn cột → chọn phép so sánh → nhập/chọn giá trị. Với cột thành viên, **là tôi** tìm các việc gán cho tài khoản hiện tại. Chạm một điều kiện để xóa; **Xóa tất cả** bỏ bộ lọc.
 - **Sắp xếp:** chọn cột và tăng/giảm dần. Có thể sắp theo tối đa 3 cột trong giao diện này; ô trống ở cuối. Chạm một mục sắp xếp để bỏ mục đó.
 - **Cột:** chọn các cột muốn hiển thị → **Áp dụng**. Cần giữ ít nhất một cột. Ẩn cột chỉ thay đổi cách xem, không phải giới hạn quyền đọc cột.
@@ -54,7 +56,7 @@ Các điều chỉnh này chưa tự thay đổi chế độ xem chung của m�
 1. Chọn bộ lọc, cách sắp xếp và cột cần hiển thị.
 2. Mở **⋮ → Lưu thành chế độ xem mới** → đặt tên.
 3. Chọn **Cá nhân**; chủ không gian còn có thể chọn **Chung cho không gian**.
-4. Bấm **Lưu**. Sau này mở danh sách chế độ xem phía trên ô tìm kiếm để chọn lại.
+4. Bấm **Lưu**. Sau này mở danh sách chế độ xem phía trên các nút tìm/lọc để chọn lại. Chuyển thẻ/bảng bằng biểu tượng trên thanh tiêu đề không thay cấu hình chế độ xem đã lưu.
 
 Muốn cập nhật một chế độ xem đã chọn, dùng **⋮ → Lưu thay đổi chế độ xem** rồi xác nhận. Chỉ chủ không gian sửa chế độ xem chung; mỗi người sửa chế độ xem cá nhân của mình. Từ khóa tìm kiếm không được lưu trong chế độ xem này.
 
@@ -88,6 +90,6 @@ Dùng không gian có tên rõ là dữ liệu thử, hai thiết bị và tài 
 4. Hai thiết bị mở cùng một dòng; lưu lần lượt để kiểm tra thông báo xung đột và cách chọn từng ô.
 5. Tắt mạng, tạo hai nháp, đóng/mở lại ứng dụng và kiểm tra cả hai vẫn tồn tại. Kết nối rồi gửi thủ công.
 6. Kiểm tra lịch sử sau khi sửa; thử gỡ quyền người đang mở bảng và xác nhận lần kết nối tiếp theo bị chặn.
-7. Thử chữ lớn, xoay màn hình và bàn phím. Ghi màn hình, thao tác, kết quả mong đợi/thực tế và cách lặp lại lỗi; không ghi mật khẩu hay token.
+7. Chuyển thẻ/bảng rồi xoay màn hình; dữ liệu và cách hiển thị phải còn. Thử tìm kiếm, thu gọn ô tìm và xóa từ khóa; không tạo thêm bản ghi. Thử chữ lớn, xoay màn hình khi nhập và bàn phím. Ghi màn hình, thao tác, kết quả mong đợi/thực tế và cách lặp lại lỗi; không ghi mật khẩu hay token.
 
 Giới hạn tạo dữ liệu hiện vẫn là **500 dòng mỗi bảng**. Bài thí nghiệm 5.000 dòng chỉ nằm trong dữ liệu kiểm thử cục bộ. Cần hoàn tất các bước trong [P0-VERIFICATION.md](P0-VERIFICATION.md) trước khi kết luận phù hợp cho công ty 100 người.

@@ -21,7 +21,7 @@ async function member(f,role='EDITOR'){
 }
 before(async()=>{
  db=new PGlite();await db.exec('create role anon; create role authenticated; create role service_role;');
- for(const name of ['202610040001_workspaces.sql','202610170001_p0_workspaces.sql'])await db.exec(await readFile(new URL('../supabase/migrations/'+name,import.meta.url),'utf8'));
+ for(const name of ['202610040001_workspaces.sql','202610170001_p0_workspaces.sql','202611130001_base_actions.sql','202611130002_workspace_actions.sql','202611140001_workspace_trash.sql'])await db.exec(await readFile(new URL('../supabase/migrations/'+name,import.meta.url),'utf8'));
 });
 after(async()=>{await db?.close();});
 test('atomic task template is replayable, typed, and private from old clients',async()=>{

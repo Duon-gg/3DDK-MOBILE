@@ -1,0 +1,17 @@
+<resources>
+ <string name="welcome_login">Đăng nhập</string>
+ <string name="welcome_register">Đăng ký</string>
+ <string name="welcome_title">Chào mừng đến với 3DDK</string>
+ <string name="welcome_create">Tạo tài khoản 3DDK</string>
+ <string name="welcome_continue">Tiếp tục</string>
+ <string name="welcome_or">hoặc</string>
+ <string name="welcome_back">Quay lại</string>
+ <string name="welcome_email">Địa chỉ email</string>
+ <string name="welcome_one">Công việc luôn trong tầm tay</string>
+ <string name="welcome_one_detail">Mở không gian và bảng của bạn ở bất cứ đâu.</string>
+ <string name="welcome_two">Theo dõi từng bước tiến</string>
+ <string name="welcome_two_detail">Sắp xếp công việc, cập nhật tiến độ cùng nhóm.</string>
+ <string name="welcome_three">Cùng nhau làm tốt hơn</string>
+ <string name="welcome_three_detail">Mời thành viên và chia sẻ một nơi làm việc chung.</string>
+ <string name="welcome_page">Trang giới thiệu %1$d trên 3</string>
+</resources>
