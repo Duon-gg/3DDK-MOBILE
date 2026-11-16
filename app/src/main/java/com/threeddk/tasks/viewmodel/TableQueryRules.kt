@@ -1,0 +1,6 @@
+package com.threeddk.tasks.viewmodel
+fun filterOperators(type:String)=buildList{
+ addAll(listOf("eq","ne","isEmpty"))
+ when(type){"TEXT"->add("contains");"NUMBER","DATE"->addAll(listOf("lt","lte","gt","gte"));"USER"->add("isMe")}
+}
+internal fun matchingPickerIndices(labels:List<String>,query:String)=labels.indices.filter{labels[it].contains(query.trim(),true)}

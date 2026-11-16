@@ -1,6 +1,7 @@
 package com.threeddk.tasks
 import com.google.gson.JsonObject
-import com.threeddk.tasks.data.*
+import com.threeddk.tasks.data.CacheEntry
+import com.threeddk.tasks.data.mostRecentTable
 import org.junit.Assert.*
 import org.junit.Test
 

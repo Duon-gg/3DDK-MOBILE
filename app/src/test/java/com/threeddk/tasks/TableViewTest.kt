@@ -1,7 +1,7 @@
 package com.threeddk.tasks
+import com.threeddk.tasks.data.visibleRecords
 
 import com.google.gson.JsonParser
-import com.threeddk.tasks.data.visibleRecords
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

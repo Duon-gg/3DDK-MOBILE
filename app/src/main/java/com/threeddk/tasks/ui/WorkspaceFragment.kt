@@ -1,4 +1,10 @@
 package com.threeddk.tasks.ui
+import com.threeddk.tasks.model.Row
+import com.threeddk.tasks.model.objects
+import com.threeddk.tasks.model.text
+import com.threeddk.tasks.viewmodel.AppViewModel
+import com.threeddk.tasks.viewmodel.WorkspaceViewModel
+import com.threeddk.tasks.adapter.RowAdapter
 
 import android.os.Bundle
 import android.view.*
@@ -10,10 +16,8 @@ import androidx.fragment.app.*
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.threeddk.tasks.*
-import com.threeddk.tasks.data.*
-import com.threeddk.tasks.data.text
-import com.threeddk.tasks.data.objects
+import com.threeddk.tasks.R
+import com.threeddk.tasks.data.recentBases
 import com.threeddk.tasks.databinding.*
 import com.google.gson.JsonObject
 
@@ -62,7 +66,7 @@ class WorkspaceFragment:Fragment(){
   b.homeProfile.setOnClickListener{findNavController().navigate(R.id.profile)}
   val account=androidx.lifecycle.ViewModelProvider(requireActivity())[AppViewModel::class.java]
   fun profileImage(){
-   val photo=accountAvatar(account.repo.auth?.currentUser,account.me?.avatarUrl)
+   val photo=account.avatar()
    com.bumptech.glide.Glide.with(this).load(photo).placeholder(R.drawable.ic_app).error(R.drawable.ic_app).circleCrop().into(b.homeProfile)
   }
   profileImage()
@@ -106,7 +110,7 @@ class WorkspaceFragment:Fragment(){
   if(path=="test-workspaces"){
    (activity as? androidx.appcompat.app.AppCompatActivity)?.supportActionBar?.setTitle(R.string.workspace_tests)
    b.heading.isVisible=false;b.summary.isVisible=false;b.add.isVisible=false;b.sync.isVisible=vm.error.value!=null
-   val spaces=data?.objects("items").orEmpty().filter{isTestWorkspace(it.text("name"))&&it.text("name").contains(b.search.text.toString(),true)}
+   val spaces=vm.testSpaces(b.search.text.toString())
    adapter.submitList(spaces.map{Row("workspaces/"+it.text("id"),it.text("name"),roleLabel(requireContext(),it.text("role")),homeItem=true,iconRes=R.drawable.ic_workspace_outline)})
    b.empty.isVisible=spaces.isEmpty();b.empty.setText(R.string.workspace_tests_empty)
    return
@@ -121,7 +125,7 @@ class WorkspaceFragment:Fragment(){
   val showSavedTables=root&&homeTab!=R.id.spaces_tab
   b.add.isVisible=!invites&&(root||data?.text("role") in listOf("OWNER","EDITOR"))
   if(root&&homeTab==R.id.recent_tab){
-   val bases=vm.recentBases.value.filter{it.name.contains(b.search.text.toString(),true)}
+   val bases=vm.filteredBases(b.search.text.toString())
    adapter.submitList(bases.map{base->
     val time=android.text.format.DateUtils.getRelativeTimeSpanString(
      base.opened,System.currentTimeMillis(),android.text.format.DateUtils.MINUTE_IN_MILLIS
@@ -134,8 +138,8 @@ class WorkspaceFragment:Fragment(){
    return
   }
   if(showSavedTables){
-   val bases=vm.recentBases.value.filter{it.starred&&it.name.contains(b.search.text.toString(),true)}
-   val spaces=data?.objects("items").orEmpty().filter{"workspaces/"+it.text("id") in vm.workspaceStars.value&&it.text("name").contains(b.search.text.toString(),true)}
+   val bases=vm.filteredBases(b.search.text.toString(),true)
+   val spaces=vm.starredSpaces(b.search.text.toString())
    adapter.submitList(spaces.map{Row("workspaces/"+it.text("id"),it.text("name"),getString(R.string.home_spaces),homeItem=true,starred=true,iconRes=R.drawable.ic_workspace_outline)}+bases.map{Row(it.path,it.name,getString(R.string.home_base_type),vividMonogram=true,starred=true)})
    b.empty.isVisible=bases.isEmpty()&&spaces.isEmpty()
    b.empty.setText(R.string.home_starred_empty)
@@ -143,8 +147,8 @@ class WorkspaceFragment:Fragment(){
   }
   if(root){
    val query=b.search.text.toString().trim()
-   val owned=data?.objects("items").orEmpty().filter{it.text("name").contains(query,true)}
-   val rows=owned.filterNot{isTestWorkspace(it.text("name"))}.map{Row("workspaces/"+it.text("id"),it.text("name"),roleLabel(requireContext(),it.text("role")),homeItem=true,starred="workspaces/"+it.text("id") in vm.workspaceStars.value,iconRes=R.drawable.ic_workspace_outline)}
+   val owned=vm.normalSpaces(query)
+   val rows=owned.map{Row("workspaces/"+it.text("id"),it.text("name"),roleLabel(requireContext(),it.text("role")),homeItem=true,starred="workspaces/"+it.text("id") in vm.workspaceStars.value,iconRes=R.drawable.ic_workspace_outline)}
    val shared=if(query.isBlank()&&data!=null)listOf(Row("home-shared",getString(R.string.home_shared),"",homeItem=true,iconRes=R.drawable.ic_shared_outline)) else emptyList()
    adapter.submitList(shared+rows)
    b.empty.isVisible=rows.isEmpty()&&shared.isEmpty()
@@ -152,7 +156,7 @@ class WorkspaceFragment:Fragment(){
    return
   }
   val key=if(root||invites)"items" else if(workspace)"bases" else "tables"
-  val rows=data?.objects(key).orEmpty().filter{it.text("name").contains(b.search.text.toString(),true)}.map{
+  val rows=vm.matchingItems(key,b.search.text.toString()).map{
    if(workspace){
     val id="bases/"+it.text("id");val recent=vm.recentBases.value.firstOrNull{base->base.path==id}
     val subtitle=recent?.let{base->getString(R.string.home_base_opened,android.text.format.DateUtils.getRelativeTimeSpanString(base.opened,System.currentTimeMillis(),60000))}?:getString(R.string.workspace_never_opened)
@@ -178,7 +182,7 @@ class WorkspaceFragment:Fragment(){
   if(id.startsWith("bases/")||id.startsWith("workspaces/")){findNavController().navigate(R.id.workspaceBrowser,bundleOf("path" to id));return}
   if(path=="workspaces"&&id=="home-shared"){
    if(vm.supports("baseActions")){sharedBases();return}
-   val shared=vm.data.value?.objects("items").orEmpty().filter{it.text("role") in listOf("EDITOR","VIEWER")}
+   val shared=vm.sharedSpaces()
    val builder=MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.home_shared).setNegativeButton(R.string.p0_dong,null)
    if(shared.isEmpty())builder.setMessage(R.string.home_shared_empty)
    else builder.setItems(shared.map{it.text("name")}.toTypedArray()){_,index->findNavController().navigate(R.id.workspaceBrowser,bundleOf("path" to "workspaces/"+shared[index].text("id")))}
@@ -200,7 +204,7 @@ class WorkspaceFragment:Fragment(){
   else findNavController().navigate(R.id.workspaceBrowser,bundleOf("path" to next))
  }
  private fun baseActions(id:String){
-  val base=vm.recentBases.value.firstOrNull{it.path==id}?:vm.data.value?.objects("bases")?.firstOrNull{"bases/"+it.text("id")==id}?.let{WorkspaceRepository.RecentBase(id,it.text("name"),0,workspaceId=path.substringAfter('/'))}?:return
+  val base=vm.baseForActions(id,path)?:return
   baseSheet?.dismiss()
   val b=SheetBaseActionsBinding.inflate(layoutInflater)
   val sheet=com.google.android.material.bottomsheet.BottomSheetDialog(requireContext())
@@ -232,15 +236,14 @@ class WorkspaceFragment:Fragment(){
   sheet.show()
   sheet.behavior.state=com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED
  }
- private fun baseBody(base:JsonObject)=JsonObject().apply{add("expectedVersion",base["version"])}
  private fun confirmBaseAction(title:String,message:String,method:String,target:String,base:JsonObject,extra:JsonObject=JsonObject()){
   dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(title).setMessage(message).setNegativeButton(R.string.p0_huy,null).setPositiveButton(R.string.p0_xac_nhan){_,_->
-   vm.mutate(method,target,baseBody(base).apply{extra.entrySet().forEach{add(it.key,it.value)}})
+   vm.versionedMutation(method,target,base,extra)
   }.show()
  }
  private fun moveBase(id:String,base:JsonObject){
   vm.readResource("workspaces"){workspaces->if(binding!=null){
-   val targets=workspaces.objects("items").filter{it.text("role")=="OWNER"&&it.text("id")!=base.text("workspaceId")}
+   val targets=vm.moveTargets(workspaces,base)
    val builder=MaterialAlertDialogBuilder(requireContext()).setTitle("Chuyển đến không gian").setNegativeButton(R.string.p0_huy,null)
    if(targets.isEmpty())builder.setMessage("Bạn cần sở hữu một không gian khác để di chuyển.")
    else builder.setItems(targets.map{it.text("name")}.toTypedArray()){_,index->
@@ -253,7 +256,7 @@ class WorkspaceFragment:Fragment(){
   val d=MaterialAlertDialogBuilder(requireContext()).setTitle("Nhân bản cơ sở dữ liệu").setMessage("Sao chép bảng, dòng đang dùng và chế độ xem bạn được phép xem. Không sao chép lời mời, người chia sẻ riêng hoặc lịch sử.").setView(b.root).setNegativeButton(R.string.p0_huy,null).setPositiveButton("Nhân bản",null).create();dialog=d
   d.setOnShowListener{d.getButton(-1).setOnClickListener{
    val name=b.value.text.toString().trim();if(name.length !in 1..100){b.valueBox.error=getString(R.string.p0_nhap_ten_tu_1_den_100_ky_tu);return@setOnClickListener}
-   vm.mutate("POST","$id/duplicate",baseBody(base).apply{addProperty("name",name)}){result->if(binding!=null){d.dismiss();findNavController().navigate(R.id.workspaceBrowser,bundleOf("path" to "bases/"+result.text("id")))}}
+   vm.duplicateBase(id,base,name){result->if(binding!=null){d.dismiss();findNavController().navigate(R.id.workspaceBrowser,bundleOf("path" to "bases/"+result.text("id")))}}
   }};d.show()
  }
  private fun trash(){
@@ -280,7 +283,7 @@ class WorkspaceFragment:Fragment(){
   };dialog=builder.show()
  }}}
  private fun sharedBases(){vm.readResource("shared-bases"){data->if(binding!=null){
-  val rows=vm.data.value?.objects("items").orEmpty().filter{it.text("role") in listOf("EDITOR","VIEWER")}.map{"workspaces/"+it.text("id") to it.text("name")}+data.objects("items").map{"bases/"+it.text("id") to it.text("name")}
+  val rows=vm.sharedSpaces().map{"workspaces/"+it.text("id") to it.text("name")}+data.objects("items").map{"bases/"+it.text("id") to it.text("name")}
   val builder=MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.home_shared).setNegativeButton(R.string.p0_dong,null)
   if(rows.isEmpty())builder.setMessage(R.string.home_shared_empty) else builder.setItems(rows.map{it.second}.toTypedArray()){_,index->findNavController().navigate(R.id.workspaceBrowser,bundleOf("path" to rows[index].first))}
   dialog=builder.show()
@@ -304,7 +307,7 @@ class WorkspaceFragment:Fragment(){
   val d=MaterialAlertDialogBuilder(requireContext()).setTitle("Mời vào cơ sở dữ liệu").setMessage("Người nhận mở mục Lời mời cơ sở dữ liệu bằng đúng email này. Không cấp quyền vào các cơ sở dữ liệu khác.").setView(b.root).setNegativeButton(R.string.p0_huy,null).setPositiveButton(R.string.p0_moi,null).create();dialog=d
   d.setOnShowListener{d.getButton(-1).setOnClickListener{
    val email=b.value.text.toString().trim();if(!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()){b.valueBox.error=getString(R.string.p0_email_chua_hop_le);return@setOnClickListener}
-   vm.mutate("POST","$id/invites",baseBody(base).apply{addProperty("email",email);addProperty("role",if(b.choice.selectedItemPosition==0)"EDITOR" else "VIEWER")}){if(binding!=null)d.dismiss()}
+   vm.inviteMember(id,email,b.choice.selectedItemPosition==0,base){if(binding!=null)d.dismiss()}
   }};d.show()
  }
  private fun create(){
@@ -320,9 +323,8 @@ class WorkspaceFragment:Fragment(){
   }}
   d.setOnShowListener{d.getButton(-1).setOnClickListener{
    val name=b.value.text.toString().trim();if(name.length !in 1..100){b.valueBox.error=getString(R.string.p0_nhap_ten_tu_1_den_100_ky_tu);return@setOnClickListener}
-   val target=if(path=="workspaces")path else if(path.startsWith("workspaces/"))"$path/bases" else "$path/tables"
    if(canUseTemplate&&b.choice.selectedItemPosition==0)vm.createTaskTable(name,::created)
-   else vm.mutate("POST",target,JsonObject().apply{addProperty("name",name)},::created)
+   else vm.createResource(path,name,::created)
   }};d.show()
  }
  override fun onCreateOptionsMenu(menu:Menu,inflater:MenuInflater){
@@ -390,7 +392,7 @@ class WorkspaceFragment:Fragment(){
   dialog=MaterialAlertDialogBuilder(requireContext()).setTitle("Xóa không gian “${data.text("name")}”?")
    .setMessage("Toàn bộ cơ sở dữ liệu bên trong sẽ tạm ngừng truy cập. Dữ liệu và thành viên được giữ lại; chỉ chủ không gian có thể khôi phục từ Thùng rác.")
    .setNegativeButton(R.string.p0_huy,null).setPositiveButton("Đưa vào thùng rác"){_,_->
-    vm.mutate("DELETE",path,baseBody(data)){if(binding!=null)findNavController().navigate(R.id.workspaceBrowser,bundleOf("path" to "workspaces"),androidx.navigation.navOptions{popUpTo(R.id.workspaces){inclusive=false}})}
+    vm.versionedMutation("DELETE",path,data){if(binding!=null)findNavController().navigate(R.id.workspaceBrowser,bundleOf("path" to "workspaces"),androidx.navigation.navOptions{popUpTo(R.id.workspaces){inclusive=false}})}
    }.show()
  }
  private fun renameWorkspace(data:JsonObject){
@@ -398,7 +400,7 @@ class WorkspaceFragment:Fragment(){
   val d=MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.workspace_rename).setView(b.root).setPositiveButton("Lưu",null).setNegativeButton(R.string.p0_huy,null).create();dialog=d
   d.setOnShowListener{d.getButton(-1).setOnClickListener{
    val name=b.value.text.toString().trim();if(name.length !in 1..100){b.valueBox.error=getString(R.string.p0_nhap_ten_tu_1_den_100_ky_tu);return@setOnClickListener}
-   vm.mutate("PATCH",path,JsonObject().apply{addProperty("name",name);add("expectedVersion",data["version"])}){if(binding!=null)d.dismiss()}
+   vm.renameWorkspace(path,name,data){if(binding!=null)d.dismiss()}
   }};d.show()
  }
  private fun members(){
@@ -416,9 +418,7 @@ class WorkspaceFragment:Fragment(){
    val transfer=which==3
    val message=when(which){2->getString(R.string.p0_nguoi_nay_se_mat_quyen_truy_cap_khong);3->getString(R.string.p0_ban_se_chuyen_thanh_thanh_vien_co_the);else->getString(R.string.p0_new_role,getString(if(which==0)R.string.p0_co_the_chinh_sua else R.string.p0_chi_xem))}
    dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(actions[which]+"?").setMessage(member.text("displayName")+"\n\n"+message).setPositiveButton(getString(R.string.p0_xac_nhan)){_,_->
-    val versionMember=if(transfer)vm.data.value?.objects("members")?.firstOrNull{it.text("role")=="OWNER"} else member
-    val payload=JsonObject().apply{addProperty("expectedVersion",versionMember?.get("version")?.asInt?:1);if(transfer)addProperty("targetUid",member.text("uid")) else if(which<2)addProperty("role",if(which==0)"EDITOR" else "VIEWER")}
-    vm.mutate(if(which==2)"DELETE" else if(transfer)"POST" else "PATCH",if(transfer)"$path/transfer-ownership" else "$path/members/${member.text("uid")}",payload)
+    vm.manageMember(path,member,which)
    }.setNegativeButton(getString(R.string.p0_huy),null).show()
   }.setNegativeButton(getString(R.string.p0_dong),null).show()
  }
@@ -437,7 +437,7 @@ class WorkspaceFragment:Fragment(){
   val d=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.p0_moi_vao_khong_gian)).setMessage(getString(R.string.p0_nguoi_nhan_dang_nhap_bang_email_nay_va)).setView(b.root).setPositiveButton(getString(R.string.p0_moi),null).setNegativeButton(getString(R.string.p0_huy),null).create();dialog=d
   d.setOnShowListener{d.getButton(-1).setOnClickListener{
    val email=b.value.text.toString().trim();if(!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()){b.valueBox.error=getString(R.string.p0_email_chua_hop_le);return@setOnClickListener}
-   vm.mutate("POST","$path/invites",JsonObject().apply{addProperty("email",email);addProperty("role",if(b.choice.selectedItemPosition==0)"EDITOR" else "VIEWER")}){if(isAdded)d.dismiss()}
+   vm.inviteMember(path,email,b.choice.selectedItemPosition==0){if(isAdded)d.dismiss()}
   }};d.show()
  }
  override fun onSaveInstanceState(outState:Bundle){outState.putBoolean("homeSearchExpanded",binding?.searchBox?.isVisible==true);outState.putInt("homeTab",homeTab);super.onSaveInstanceState(outState)}

@@ -1,4 +1,6 @@
 package com.threeddk.tasks
+import com.threeddk.tasks.data.changePassword
+import com.threeddk.tasks.data.requestPasswordReset
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -7,9 +9,7 @@ import com.google.firebase.FirebaseOptions
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.gson.JsonParser
-import com.threeddk.tasks.data.changePassword
 import com.threeddk.tasks.data.hasPasswordProvider
-import com.threeddk.tasks.data.requestPasswordReset
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.tasks.await
 import org.junit.Assert.assertEquals

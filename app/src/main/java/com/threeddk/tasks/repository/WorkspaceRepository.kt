@@ -1,4 +1,11 @@
-package com.threeddk.tasks.data
+package com.threeddk.tasks.repository
+import com.threeddk.tasks.model.objects
+import com.threeddk.tasks.model.text
+import com.threeddk.tasks.data.ApiException
+import com.threeddk.tasks.data.CacheEntry
+import com.threeddk.tasks.data.Draft
+import com.threeddk.tasks.data.mostRecentTable
+import com.threeddk.tasks.data.recentBases
 
 import androidx.room.withTransaction
 import com.google.gson.*
@@ -184,8 +191,7 @@ fun cacheAfterBaseRemoval(rows:List<CacheEntry>,basePath:String):List<CacheEntry
  }
 }
 
-fun JsonObject.text(key:String)=get(key)?.takeUnless{it.isJsonNull}?.asString.orEmpty()
-fun JsonObject.objects(key:String)=getAsJsonArray(key)?.map{it.asJsonObject}.orEmpty()
+
 
 private fun canonicalJson(value:JsonElement):JsonElement=when {
  value.isJsonObject->JsonObject().apply{value.asJsonObject.keySet().sorted().forEach{add(it,canonicalJson(value.asJsonObject[it]))}}
