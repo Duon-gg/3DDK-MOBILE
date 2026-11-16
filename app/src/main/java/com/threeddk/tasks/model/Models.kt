@@ -1,4 +1,5 @@
-package com.threeddk.tasks.data
+package com.threeddk.tasks.model
+import com.threeddk.tasks.data.ApiException
 import java.net.URI
 import java.time.Instant
 import java.time.ZoneId

@@ -1,6 +1,8 @@
 package com.threeddk.tasks
+import com.threeddk.tasks.repository.cacheAfterBaseRemoval
+import com.threeddk.tasks.repository.cacheAfterWorkspaceRevocation
 
-import com.threeddk.tasks.data.*
+import com.threeddk.tasks.data.CacheEntry
 import org.junit.Assert.*
 import org.junit.Test
 

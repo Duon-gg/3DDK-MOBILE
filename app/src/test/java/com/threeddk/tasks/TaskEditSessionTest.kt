@@ -1,6 +1,7 @@
 package com.threeddk.tasks
-import com.google.gson.JsonObject
+import com.threeddk.tasks.model.text
 import com.threeddk.tasks.data.TaskEditSession
+import com.google.gson.JsonObject
 import org.junit.Assert.*
 import org.junit.Test
 class TaskEditSessionTest {

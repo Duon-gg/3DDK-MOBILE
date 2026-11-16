@@ -1,9 +1,14 @@
-package com.threeddk.tasks
+package com.threeddk.tasks.viewmodel
+import com.threeddk.tasks.TasksApp
+import com.threeddk.tasks.model.friendlyError
+import com.threeddk.tasks.model.objects
+import com.threeddk.tasks.model.text
 
 import android.app.Application
 import androidx.lifecycle.*
 import com.google.gson.*
-import com.threeddk.tasks.data.*
+import com.threeddk.tasks.data.ApiException
+import com.threeddk.tasks.data.Draft
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Mutex
@@ -239,4 +244,12 @@ class RecordViewModel(app:Application,private val savedState:SavedStateHandle):A
   try{history.value=repo.cached("$path/records/$recordId/history");repo.refresh("$path/records/$recordId/history");history.value=repo.cached("$path/records/$recordId/history")}
   catch(e:CancellationException){throw e}catch(e:Exception){if(e is ApiException&&e.code in listOf("FORBIDDEN","UNAUTHORIZED","NOT_FOUND"))hideRemoteData();status.value=friendlyError(e)}
  }}
+
+ fun orphanValues()=raw.entrySet().filter{(id,_)->table.value?.objects("fields").orEmpty().none{it.text("id")==id}}
+ fun matchingMembers(members:List<JsonObject>,query:String)=members.filter{it.text("displayName").contains(query,true)}
+ fun selectOptions(field:JsonObject,value:String):List<String>{
+  val configured=field.getAsJsonArray("options").map{it.asString}
+  return listOf("")+configured+if(value.isNotBlank()&&value !in configured)listOf(value) else emptyList()
+ }
+
 }

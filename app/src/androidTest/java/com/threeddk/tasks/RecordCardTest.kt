@@ -1,4 +1,6 @@
 package com.threeddk.tasks
+import com.threeddk.tasks.model.text
+import com.threeddk.tasks.adapter.RecordCardAdapter
 
 import android.content.Context
 import android.view.ContextThemeWrapper
@@ -11,7 +13,6 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.threeddk.tasks.databinding.ItemRecordCardBinding
-import com.threeddk.tasks.ui.RecordCardAdapter
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import org.junit.Assert.*

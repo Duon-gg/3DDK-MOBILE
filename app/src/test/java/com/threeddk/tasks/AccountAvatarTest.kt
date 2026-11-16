@@ -1,6 +1,6 @@
 package com.threeddk.tasks
-
 import com.threeddk.tasks.data.preferredAvatar
+
 import org.junit.Assert.*
 import org.junit.Test
 

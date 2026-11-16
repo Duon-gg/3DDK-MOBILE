@@ -1,4 +1,7 @@
 package com.threeddk.tasks.ui
+import com.threeddk.tasks.model.text
+import com.threeddk.tasks.viewmodel.AppViewModel
+import com.threeddk.tasks.data.changePassword
 import android.os.Bundle
 import com.threeddk.tasks.data.accountAvatar
 import android.view.*
@@ -6,7 +9,8 @@ import androidx.core.view.isVisible
 import androidx.fragment.app.*
 import com.bumptech.glide.Glide
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.threeddk.tasks.*
+import com.threeddk.tasks.BuildConfig
+import com.threeddk.tasks.R
 import com.threeddk.tasks.databinding.FragmentProfileBinding
 import com.threeddk.tasks.databinding.DialogChangePasswordBinding
 class ProfileFragment:Fragment(){
@@ -16,23 +20,22 @@ class ProfileFragment:Fragment(){
  private var passwordDialog:androidx.appcompat.app.AlertDialog?=null
  override fun onCreateView(inflater:LayoutInflater,container:ViewGroup?,state:Bundle?)=FragmentProfileBinding.inflate(inflater,container,false).also{binding=it}.root
  override fun onViewCreated(view:View,state:Bundle?){
-  val b=binding!!;val me=vm.me;b.name.setText(me?.displayName);b.email.text=me?.email?:vm.repo.auth?.currentUser?.email;avatar=state?.getString("avatar")?:me?.avatarUrl.orEmpty()
-  b.displayName.text=me?.displayName?.takeIf{it.isNotBlank()}?:vm.repo.auth?.currentUser?.displayName
-  b.changeAvatar.isVisible=accountAvatar(vm.repo.auth?.currentUser,null)==null
+  val b=binding!!;val me=vm.me;b.name.setText(me?.displayName);b.email.text=me?.email?:vm.accountEmail;avatar=state?.getString("avatar")?:me?.avatarUrl.orEmpty()
+  b.displayName.text=me?.displayName?.takeIf{it.isNotBlank()}?:vm.accountName
+  b.changeAvatar.isVisible=vm.googleAvatar==null
   b.buildVersion.text=getString(R.string.profile_build,BuildConfig.VERSION_NAME)
   b.profileEditor.isVisible=state?.getBoolean("editing")==true
   b.editProfile.setOnClickListener{b.profileEditor.isVisible=!b.profileEditor.isVisible}
-  fun image(){Glide.with(this).load(accountAvatar(vm.repo.auth?.currentUser,avatar)).placeholder(R.drawable.ic_person).error(R.drawable.ic_person).circleCrop().into(b.avatar)}
+  fun image(){Glide.with(this).load(vm.avatar(avatar)).placeholder(R.drawable.ic_person).error(R.drawable.ic_person).circleCrop().into(b.avatar)}
   image()
   b.changeAvatar.setOnClickListener{MaterialAlertDialogBuilder(requireContext()).setTitle("Chọn avatar").setItems((1..6).map{"Avatar $it"}.toTypedArray()){_,index->avatar="https://api.dicebear.com/9.x/shapes/png?seed=${index+1}";image()}.show()}
-  b.save.setOnClickListener{val name=b.name.text.toString().trim();if(name.isBlank()){b.nameBox.error="Nhập tên hiển thị.";return@setOnClickListener};vm.mutation("PATCH","me",vm.repo.body("displayName" to name,"avatarUrl" to avatar)){b.displayName.text=name;b.profileEditor.isVisible=false;vm.message.value="Đã lưu hồ sơ."}}
+  b.save.setOnClickListener{val name=b.name.text.toString().trim();if(name.isBlank()){b.nameBox.error="Nhập tên hiển thị.";return@setOnClickListener};vm.updateProfile(name,avatar){if(binding===b){b.displayName.text=name;b.profileEditor.isVisible=false}}}
   b.notifications.isVisible=false
   b.changePassword.isVisible=vm.canChangePassword
   b.changePassword.setOnClickListener{showPasswordDialog()}
   watch(vm.changingPassword){b.changePassword.isEnabled=!it;b.logout.isEnabled=!it&&!vm.loading.value}
-  b.logout.setOnClickListener{vm.execute{
-   val count=vm.repo.uid?.let{vm.repo.dao.draftCount(it)}?:0
-   if(!isAdded)return@execute
+  b.logout.setOnClickListener{vm.logoutDraftCount{count->
+   if(!isAdded||binding!==b)return@logoutDraftCount
    MaterialAlertDialogBuilder(requireContext()).setTitle("Đăng xuất?").setMessage(if(count>0)"Có $count bản nháp chưa gửi. Đăng xuất sẽ xóa bản nháp và dữ liệu cục bộ trên thiết bị này." else "Dữ liệu đã tải trên thiết bị sẽ được xóa.").setPositiveButton("Đăng xuất"){_,_->vm.logout()}.setNegativeButton("Ở lại",null).show()
   }}
   watch(vm.loading){b.save.isEnabled=!it;b.logout.isEnabled=!it&&!vm.changingPassword.value};renderNotifications()

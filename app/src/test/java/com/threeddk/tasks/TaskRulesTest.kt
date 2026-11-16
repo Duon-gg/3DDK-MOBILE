@@ -1,5 +1,6 @@
 package com.threeddk.tasks
-import com.threeddk.tasks.data.*
+import com.threeddk.tasks.model.Task
+import com.threeddk.tasks.model.submissionError
 import org.junit.Assert.*
 import org.junit.Test
 class TaskRulesTest {

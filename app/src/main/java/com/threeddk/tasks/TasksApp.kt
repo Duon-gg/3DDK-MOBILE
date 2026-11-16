@@ -1,10 +1,10 @@
 package com.threeddk.tasks
+import com.threeddk.tasks.repository.TaskRepository
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
-import com.threeddk.tasks.data.TaskRepository
 class TasksApp:Application(){
  val repository by lazy {TaskRepository(this)}
  override fun onCreate(){
