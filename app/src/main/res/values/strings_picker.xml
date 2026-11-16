@@ -1,0 +1,5 @@
+<resources>
+    <string name="picker_search_views">Tìm chế độ xem</string>
+    <string name="picker_no_views">Không có chế độ xem khớp với tên đã nhập.</string>
+    <string name="picker_all_records">Tất cả dòng</string>
+</resources>

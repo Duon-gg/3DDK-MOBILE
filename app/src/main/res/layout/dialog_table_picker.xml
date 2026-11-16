@@ -1,0 +1,67 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="?attr/colorSurface"
+    android:paddingHorizontal="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical">
+        <ImageButton
+            android:id="@+id/close_picker"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/p0_dong"
+            android:src="@drawable/ic_close"
+            app:tint="?attr/colorOnSurface"/>
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/picker_heading"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:gravity="start|center_vertical"
+            android:textStyle="bold"
+            android:textColor="?attr/colorOnSurface"/>
+    </LinearLayout>
+
+    <com.google.android.material.tabs.TabLayout
+        android:id="@+id/table_tabs"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="48dp"
+        app:tabMode="scrollable"
+        app:tabIndicatorColor="?attr/colorOnSurface"
+        app:tabSelectedTextColor="?attr/colorOnSurface"
+        app:tabIndicatorFullWidth="false"/>
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/picker_search_views">
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/search"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:inputType="text"
+            android:maxLines="1"/>
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <ProgressBar android:id="@+id/picker_loading" android:layout_width="32dp" android:layout_height="32dp" android:layout_gravity="center_horizontal" android:visibility="gone"/>
+    <TextView android:id="@+id/picker_message" android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="12dp" android:visibility="gone" android:accessibilityLiveRegion="polite"/>
+
+    <ListView
+        android:id="@+id/choices"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:choiceMode="singleChoice"/>
+
+    <com.google.android.material.button.MaterialButton android:id="@+id/create_view" style="@style/Widget.Material3.Button.TextButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:gravity="start|center_vertical" android:text="@string/p0_luu_thanh_che_do_xem_moi"/>
+</LinearLayout>

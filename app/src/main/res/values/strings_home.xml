@@ -1,0 +1,9 @@
+<resources>
+ <string name="home_profile_label">3DDK — Cá nhân</string>
+ <string name="home_base_type">Cơ sở dữ liệu</string>
+ <string name="home_open_data">Mở dữ liệu</string>
+ <string name="home_go_workspace">Đi tới không gian làm việc</string>
+ <string name="home_shared">Được chia sẻ</string>
+ <string name="home_shared_empty">Bạn chưa tham gia không gian nào do người khác quản lý.</string>
+ <string name="home_just_opened">Vừa mở dữ liệu</string>
+</resources>

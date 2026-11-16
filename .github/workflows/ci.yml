@@ -18,6 +18,12 @@ jobs:
       - run: npm test
       - run: npm run test:edge
       - run: npm run check:edge
+      - run: npm run test:load:local | tee p0-load.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: local-p0-load-experiment
+          path: p0-load.txt
   android:
     runs-on: ubuntu-latest
     steps:
