@@ -19,6 +19,8 @@ class AppViewModel(app:Application):AndroidViewModel(app) {
  val rows=MutableStateFlow<List<CacheEntry>>(emptyList())
  val drafts=MutableStateFlow<List<Draft>>(emptyList())
  val loading=MutableStateFlow(false)
+ val changingPassword=MutableStateFlow(false)
+ val canChangePassword get()=repo.auth?.currentUser?.hasPasswordProvider==true
  val message=MutableStateFlow<String?>(null)
  val syncNote=MutableStateFlow("Chưa đồng bộ")
  var pendingTaskId:String?=null
@@ -79,7 +81,30 @@ class AppViewModel(app:Application):AndroidViewModel(app) {
   restore()
  }
  fun resendVerification()=execute{repo.auth?.currentUser?.sendEmailVerification()?.await();message.value="Đã gửi email xác minh. Kiểm tra cả thư mục spam."}
- fun reset(email:String)=execute{repo.auth?.sendPasswordResetEmail(email.trim())?.await();message.value="Nếu email hợp lệ, bạn sẽ nhận hướng dẫn đặt lại mật khẩu."}
+ fun reset(email:String)=execute{
+  requireNotNull(repo.auth).requestPasswordReset(email)
+  message.value=getApplication<Application>().getString(R.string.password_reset_requested)
+ }
+ fun changePassword(current:String,replacement:String,done:(Int?)->Unit){
+  if(changingPassword.value)return
+  changingPassword.value=true
+  viewModelScope.launch{
+   val error=try{
+    requireNotNull(repo.auth).changePassword(current,replacement)
+    message.value=getApplication<Application>().getString(R.string.password_changed)
+    null
+   }catch(e:CancellationException){throw e}
+   catch(e:Exception){
+    when((e as? FirebaseAuthException)?.errorCode){
+     "ERROR_WRONG_PASSWORD","ERROR_INVALID_CREDENTIAL","ERROR_INVALID_LOGIN_CREDENTIALS"->R.string.password_wrong_current
+     "ERROR_WEAK_PASSWORD","ERROR_PASSWORD_DOES_NOT_MEET_REQUIREMENTS"->R.string.password_policy
+     "ERROR_TOO_MANY_REQUESTS"->R.string.password_retry_later
+     else->if(e is com.google.firebase.FirebaseNetworkException)R.string.password_network else R.string.password_change_failed
+    }
+   }finally{changingPassword.value=false}
+   done(error)
+  }
+ }
  fun logout()=execute{
   observer?.cancel();repo.logout();rows.value=emptyList();drafts.value=emptyList();session.value="AUTH";pendingTaskId=null
   try{CredentialManager.create(getApplication()).clearCredentialState(ClearCredentialStateRequest())}

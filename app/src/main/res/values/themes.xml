@@ -1,8 +1,14 @@
 <resources>
  <style name="Theme.Tasks" parent="Theme.Material3.Light.NoActionBar">
-  <item name="colorPrimary">#2563EB</item><item name="colorOnPrimary">#FFFFFF</item>
-  <item name="colorSecondary">#475569</item><item name="android:fontFamily">sans</item>
-  <item name="android:windowLightStatusBar">true</item><item name="android:statusBarColor">#F8FAFC</item>
-  <item name="android:navigationBarColor">#FFFFFF</item><item name="android:windowBackground">#F8FAFC</item>
+  <item name="colorPrimary">@color/mobile_primary</item><item name="colorOnPrimary">@color/mobile_on_primary</item>
+  <item name="colorPrimaryContainer">@color/mobile_primary_container</item><item name="colorOnPrimaryContainer">@color/mobile_on_primary_container</item>
+  <item name="colorSecondary">@color/mobile_secondary_text</item><item name="colorSecondaryContainer">@color/mobile_surface_variant</item><item name="colorOnSecondaryContainer">@color/mobile_text</item>
+  <item name="colorSurface">@color/mobile_surface</item><item name="colorSurfaceVariant">@color/mobile_surface_variant</item>
+  <item name="colorSurfaceContainerLow">@color/mobile_surface</item><item name="colorSurfaceContainer">@color/mobile_background</item><item name="colorSurfaceContainerHigh">@color/mobile_surface_variant</item>
+  <item name="colorOnSurface">@color/mobile_text</item><item name="colorOnSurfaceVariant">@color/mobile_secondary_text</item>
+  <item name="colorOutline">@color/mobile_outline</item><item name="colorOutlineVariant">@color/mobile_border</item>
+  <item name="android:fontFamily">sans</item>
+  <item name="android:windowLightStatusBar">true</item><item name="android:statusBarColor">@color/mobile_surface</item>
+  <item name="android:navigationBarColor">@color/mobile_surface</item><item name="android:windowBackground">@color/mobile_background</item>
  </style>
 </resources>

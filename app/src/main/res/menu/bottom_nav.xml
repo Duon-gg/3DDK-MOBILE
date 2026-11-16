@@ -1,5 +1,5 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
- <item android:id="@+id/workspaces" android:icon="@drawable/ic_app" android:title="Không gian"/>
+ <item android:id="@+id/workspaces" android:icon="@drawable/ic_table" android:title="Không gian"/>
  <item android:id="@+id/invitations" android:icon="@drawable/ic_team" android:title="Lời mời"/>
  <item android:id="@+id/profile" android:icon="@drawable/ic_person" android:title="Cá nhân"/>
 </menu>

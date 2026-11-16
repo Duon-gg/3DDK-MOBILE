@@ -1,5 +1,7 @@
 # Đăng nhập Google cho 3DDK
 
+Bản giao diện mới là `0.4.0-mobile-preview`; mã đăng nhập/cấu hình Google được giữ nguyên. Kết quả ngày 31/10 bên dưới giữ đúng phiên bản đã chạy. Trạng thái kiểm thử của bản mobile, gồm bước đăng nhập thật còn chờ, nằm trong [nhật ký 01/11](PROGRESS-2026-11-01.md).
+
 ## Trạng thái
 
 Mã ứng dụng đã có nút **Tiếp tục với Google** dùng Android Credential Manager và Firebase Authentication. Google trả về thông tin xác thực cho Firebase SDK; API của 3DDK tiếp tục nhận Firebase ID token và kiểm tra tài khoản như trước. Không gửi Google token trực tiếp tới Supabase và không lưu token vào Room hoặc tùy chọn đăng nhập.
@@ -8,7 +10,15 @@ Trong lượt cấu hình ngày 31/10/2026, đã bật và lưu nhà cung cấp 
 
 `app/google-services.json` cũ chưa được thay do chưa tải được bản mới. Điều này không thay đổi cách khởi tạo Firebase hiện tại: ứng dụng đọc `BuildConfig`, còn Google đọc `FIREBASE_WEB_CLIENT_ID`. Không cần áp dụng thêm plugin Gradle chỉ để dùng giá trị đã cấu hình. Nếu thiếu Web client ID ở máy dựng khác, nút Google giải thích ngắn và email/mật khẩu vẫn dùng được.
 
-Bản `0.3.2-google-preview` (`versionCode 5`) đã dựng thành công: 22 unit test đạt, lint 0 lỗi/105 cảnh báo, APK/AAB ký hợp lệ. Trên máy ảo API 35, lượt thông thường có 9 bài đạt/3 bài bỏ qua; bài Google có cấu hình và khôi phục Activity đã đạt. UI Google thật đã mở tới xác minh rồi Welcome / I agree. Chưa xác nhận hủy thành công hoặc Firebase/API đã nhận phiên Google; thiết bị đang chờ người dùng hoàn tất phần Google.
+Bản hiện tại là `0.3.3-google-preview` (`versionCode 6`). Lượt dựng trước khi sửa nhãn trạng thái đạt sáu tác vụ Gradle sau 9 phút 2 giây, 153 tác vụ (58 thực thi, 95 đã có kết quả); 22 unit test đạt, lint 0 lỗi/105 cảnh báo, APK/AAB ký hợp lệ. Log giữ riêng ở `artifacts/2026-10-31/google-auth/android-build-0.3.3-before-status-fix.log`. Lượt API 35 thông thường trước sửa nhãn có **10 bài đạt/3 bài bỏ qua trong 13,406 giây**, gồm bài hồi quy điều hướng phiên đăng nhập. Lượt dựng cuối sau sửa nhãn đang chạy, chưa có kết quả tại thời điểm cập nhật này.
+
+Trên signed release 0.3.2 đã tái hiện lỗi: Firebase đã đăng xuất nhưng màn hình Profile vẫn hiện tên, email và avatar. Nguyên nhân là việc đặt lại cùng navigation graph không loại bỏ màn hình riêng tư khỏi back stack. Bản 0.3.3 điều hướng rõ về Auth và xóa stack cũ; `SessionNavigationTest` đi từ RED ở 0.3.2 sang GREEN ở 0.3.3. Test này kiểm tra điều hướng bằng trạng thái UI trong bộ nhớ, không tự đăng xuất Firebase hoặc xóa dữ liệu người dùng.
+
+APK release 0.3.3 đã ký/thu gọn và cài nâng cấp bằng `-r`. Thử trực tiếp trên máy ảo đã đạt: đăng xuất từ Profile về Auth không còn thông tin cá nhân; hủy cửa sổ Google bằng cử chỉ Back về Auth; bấm Google và tự chọn tài khoản đang có để đăng nhập lại, thấy đúng bốn không gian cũ; lưu một dòng kiểm thử và thấy dòng đó trong Grid. Sau lưu, nhãn “đang tải” vẫn còn dù Grid đã hiển thị dữ liệu. Đã sửa cách cập nhật nhãn trong `DataTableFragment`, không đổi backend; chưa có kết quả kiểm tra trực tiếp trên APK dựng lại sau sửa này.
+
+Lượt tự động hủy Google đầu tiên trên 0.3.3 dùng test cũ bị kẹt và phải force-stop, kết quả **INCONCLUSIVE**, không tính là PASSED. Test đã được sửa để chờ cửa sổ tương tác của Google, giới hạn chờ 60 giây; test APK/lint dựng đạt trong 2 phút 6 giây. Lượt chạy lại đã **PASSED trong 7,672 giây**, log `google-picker-cancel-0.3.3-retry.log`; giữ cả log lượt bị dừng. Kết quả hủy thủ công trên release và kết quả tự động vẫn được ghi riêng.
+
+Bằng chứng debug 0.3.2 vẫn giữ nguyên theo phiên bản: hủy Google chạy riêng đạt; sau khi người dùng tự đăng nhập, SDK xác nhận Google/email đã xác minh và API chấp nhận phiên. Hai live test công việc cùng phiên Google đạt tạo bảng, replay không trùng, chống ghi đè/cache và nháp qua xoay màn hình rồi lưu. Mỗi bài dùng không gian kiểm thử riêng; hai không gian được giữ lại. Không dùng các kết quả 0.3.2 để coi mọi live test đã chạy lại trên 0.3.3.
 
 ## Quy trình cấu hình cho máy dựng khác
 
@@ -40,14 +50,20 @@ Web client ID là mã định danh công khai; chức năng vẫn cần cấu h�
 
 Cách cài test APK, lệnh chạy từng trường hợp và cách phân biệt kết quả `SKIPPED`/đã chạy nằm trong [TESTING.md — Đăng nhập Google](TESTING.md#đăng-nhập-google). Các test không nhập mật khẩu, chọn tài khoản hoặc đăng nhập thay người dùng.
 
-| Test | Điều kiện | Tình trạng kiểm thử sau cấu hình mới |
+| Test | Điều kiện | Kết quả có phiên bản |
 |---|---|---|
 | `missingGoogleConfigurationKeepsEmailLoginAvailableAfterRecreation` | Bản dựng không có Web client ID; đang đăng xuất | SKIPPED trên 0.3.2 vì đã có Web client ID; đã đạt ở bản 0.3.1 thiếu cấu hình. |
 | `configuredGoogleButtonAndEmailLoginSurviveRecreation` | Có Web client ID; đang đăng xuất | PASSED trên API 35, APK 0.3.2. |
-| `cancelRealGooglePickerKeepsEmailLoginAvailable` | Có Web client ID; đang đăng xuất; `liveGooglePicker=true`; dịch vụ Google hoạt động | Lượt đầu mở được UI Google nhưng FAILED do driver Espresso Back không có Activity của app ở RESUMED. Đã sửa test sang Back ở cấp thiết bị; chờ chạy lại. |
-| `manuallySignedInGoogleSessionIsAcceptedByBackend` | Người dùng đã tự đăng nhập Google; `liveGoogleLogin=true`; có mạng | Chưa chạy; kiểm tra nhà cung cấp của phiên bằng SDK rồi gọi capabilities qua API hiện có. |
+| `cancelRealGooglePickerKeepsEmailLoginAvailable` | Có Web client ID; đang đăng xuất; `liveGooglePicker=true`; dịch vụ Google hoạt động | Debug 0.3.2 PASSED khi chạy lại, 7,613 giây, sau lỗi driver Espresso Back ban đầu. 0.3.3 có lượt đầu INCONCLUSIVE do bị kẹt/dừng; sửa test chờ có giới hạn rồi chạy lại PASSED, 7,672 giây. Hủy thủ công trên release 0.3.3 đạt riêng. |
+| `manuallySignedInGoogleSessionIsAcceptedByBackend` | Người dùng đã tự đăng nhập Google; `liveGoogleLogin=true`; có mạng | Debug 0.3.2 PASSED, 2,79 giây: SDK xác nhận `signInProvider=google.com`, email đã xác minh và API trả capabilities P0 có `atomicTemplates`; chưa chạy lại test này trên 0.3.3. |
 
-Không tính một test bị bỏ qua là đã kiểm chứng chức năng đó. Bài kiểm tra capabilities chỉ đọc dữ liệu khả năng API, không tự tạo không gian hoặc bảng; các bài thử công việc thật vẫn chạy riêng sau khi có phiên hợp lệ.
+Không tính một test bị bỏ qua là đã kiểm chứng chức năng đó. Bài kiểm tra capabilities chỉ đọc dữ liệu khả năng API, không tự tạo không gian hoặc bảng. Các bài thử công việc thật đã chạy riêng bằng phiên Google: `WorkspaceLiveTest` đạt trong 22,576 giây và `WorkspaceEditLiveTest` đạt trong 31,7 giây.
+
+Log nằm trong `artifacts/2026-10-31/google-auth/`: `google-picker-cancel.log` ghi lỗi driver ban đầu; `google-picker-cancel-retry.log`, `google-session-api.log`, `workspace-api-google.log` và `workspace-ui-google.log` ghi từng lượt đạt của debug 0.3.2. `session-navigation-red.log` giữ lỗi 0.3.2; `instrumentation-normal-0.3.3.log` ghi GREEN điều hướng ở 0.3.3; `google-picker-cancel-0.3.3.log` là lượt không có kết luận, còn `google-picker-cancel-0.3.3-retry.log` ghi lượt chạy lại đạt. Log giữ trên máy phát triển, không chứa token hoặc mật khẩu.
+
+Ảnh kiểm tra trực tiếp release 0.3.3 ở cùng thư mục: `release-logout-fixed-0.3.3.png`, `release-google-cancel-0.3.3.png`, `release-google-login-0.3.3.png`, `release-row-saved-0.3.3.png`. Không dùng việc tạo được ảnh chụp để thay thế mọi trường hợp nghiệm thu còn lại.
+
+Chưa nghiệm thu cộng tác hai tài khoản, tải 100 người/20 người cùng thao tác, API 24 trong đợt này, điện thoại thật, thông báo bảng v2 hoặc rò rỉ bộ nhớ. Các thao tác release nêu trên đã thử trực tiếp trên máy ảo; vẫn cần thử tài khoản email đã có, đổi sang tài khoản khác và các tình huống lỗi/mất mạng.
 
 ## Thao tác cần kiểm tra thật
 
@@ -65,6 +81,8 @@ Không tính một test bị bỏ qua là đã kiểm chứng chức năng đó.
 Ứng dụng không tự gộp các tài khoản Firebase khác UID, kể cả có tên/email giống nhau. Không thực hiện liên kết tài khoản bằng cách đoán email.
 
 Đăng xuất dùng luồng xóa cache/nháp hiện tại và gọi `clearCredentialState` để bỏ ưu tiên phiên Google đã chọn. Nếu nhà cung cấp không xóa được trạng thái, ứng dụng vẫn đã đăng xuất Firebase và nhắc kiểm tra tài khoản ở lần tiếp theo.
+
+Với 0.3.2, không coi chỉ `FirebaseAuth.currentUser == null` là đủ: lỗi điều hướng đã để Profile cũ tiếp tục hiển thị. Bản 0.3.3 bổ sung xóa back stack khi về Auth; cần giữ bài hồi quy này trong các lần cập nhật tiếp theo.
 
 ## Nguồn chính thức
 

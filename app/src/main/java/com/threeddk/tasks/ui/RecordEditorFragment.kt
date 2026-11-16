@@ -6,9 +6,11 @@ import android.view.*
 import android.widget.*
 import android.text.InputType
 import androidx.core.view.isVisible
+import androidx.core.os.bundleOf
 import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.*
 import androidx.navigation.fragment.findNavController
+import androidx.navigation.navOptions
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputLayout
@@ -28,16 +30,38 @@ class RecordEditorFragment:Fragment(){
  private var historyRequested=false
  private var dateDialog:DatePickerDialog?=null
  private val recordId get()=requireArguments().getString("recordId")?:"new"
+ private val rowIds get()=requireArguments().getStringArray("rowIds").orEmpty()
  override fun onCreateView(i:LayoutInflater,c:ViewGroup?,s:Bundle?)=FragmentRecordEditorBinding.inflate(i,c,false).also{binding=it}.root
  override fun onViewCreated(v:View,s:Bundle?){
   val b=binding!!;setHasOptionsMenu(true);b.save.setOnClickListener{vm.submit()};b.reconcile.setOnClickListener{resolveConflict()}
-  watch(vm.ready){if(it&&!rendered)render();requireActivity().invalidateOptionsMenu()}
+  val rows=rowIds
+  val position=rows.indexOf(recordId)
+  b.previousRow.isVisible=position>=0
+  b.nextRow.isVisible=position>=0
+  b.rowPosition.isVisible=position>=0
+  if(position>=0){
+   b.rowPosition.text=getString(R.string.record_position,position+1,rows.size)
+   b.previousRow.setOnClickListener{switchRow(rows.getOrNull(position-1))}
+   b.nextRow.setOnClickListener{switchRow(rows.getOrNull(position+1))}
+  }
+  watch(vm.ready){if(it&&!rendered)render();updateEnabled();requireActivity().invalidateOptionsMenu()}
+  watch(vm.recordRefresh){if(it>0&&rendered)render()}
   watch(vm.table){if(it==null){b.fields.removeAllViews();dialog?.dismiss();dateDialog?.dismiss();rendered=false;schema="";requireActivity().invalidateOptionsMenu()}else{val signature=it.objects("fields").toString()+it.objects("members").toString();if(vm.ready.value&&signature!=schema)render()}}
   watch(vm.status){b.status.text=it;updateEnabled()};watch(vm.busy){updateEnabled()}
   watch(vm.creationPending){if(it){dialog?.dismiss();dateDialog?.dismiss()};updateEnabled()}
   watch(vm.conflict){b.reconcile.isVisible=it;if(!it&&vm.ready.value)render();updateEnabled()};watch(vm.finished){if(it)findNavController().popBackStack()}
   watch(vm.history){if(historyRequested&&it!=null){historyRequested=false;showHistory(it)}}
   vm.open(requireArguments().getString("path")!!,recordId)
+ }
+ private fun switchRow(id:String?){
+  if(id==null)return
+  val view=binding?.root?:return
+  vm.beforeSwitch{
+   if(binding?.root!==view||findNavController().currentDestination?.id!=R.id.recordEditor)return@beforeSwitch
+   findNavController().navigate(R.id.recordEditor,
+    bundleOf("path" to requireArguments().getString("path"),"recordId" to id,"rowIds" to rowIds),
+    navOptions{popUpTo(R.id.recordEditor){inclusive=true}})
+  }
  }
  override fun onCreateOptionsMenu(menu:Menu,inflater:MenuInflater){if(vm.canArchive)menu.add(0,20,0,getString(R.string.p0_luu_tru_dong));if(recordId!="new"&&!recordId.startsWith("new/")&&vm.ready.value)menu.add(0,21,1,getString(R.string.p0_lich_su_thay_doi));if(vm.ready.value||vm.raw.size()>0)menu.add(0,22,2,getString(R.string.p0_sao_chep_ban_nhap))}
  override fun onOptionsItemSelected(item:MenuItem):Boolean{
@@ -56,19 +80,43 @@ class RecordEditorFragment:Fragment(){
  }
  private fun updateEnabled(){
   val b=binding?:return;b.save.isEnabled=vm.ready.value&&vm.writable&&!vm.busy.value&&!vm.conflict.value;b.save.isVisible=vm.writable;b.reconcile.isEnabled=!vm.busy.value
-  b.creationPending.isVisible=vm.creationPending.value;b.save.setText(if(vm.creationPending.value)R.string.p0_retry_submit else R.string.p0_luu_len_bang)
+  val rows=rowIds
+  val position=rows.indexOf(recordId)
+  val canSwitch=vm.ready.value&&!vm.busy.value&&position>=0
+  b.previousRow.isEnabled=canSwitch&&position>0
+  b.nextRow.isEnabled=canSwitch&&position<rows.lastIndex
+  b.creationPending.isVisible=vm.creationPending.value;b.save.setText(if(vm.creationPending.value)R.string.p0_retry_submit else R.string.p0_luu)
   fun enable(view:View){view.isEnabled=vm.writable&&!vm.busy.value&&!vm.conflict.value&&!vm.creationPending.value;if(view is ViewGroup)for(i in 0 until view.childCount)enable(view.getChildAt(i))}
   enable(b.fields)
  }
  private fun render(){
   val b=binding?:return;val table=vm.table.value?:return;rendered=true;schema=table.objects("fields").toString()+table.objects("members").toString();b.fields.removeAllViews()
-  table.objects("fields").forEach{field->
+  table.objects("fields").forEachIndexed{index,field->
    val f=ItemFieldEditorBinding.inflate(layoutInflater,b.fields,false);val id=field.text("id");val value=vm.raw.get(id)?.takeUnless{it.isJsonNull}?.asString.orEmpty()
-   f.inputBox.hint=field.text("name");f.input.setText(value);f.input.isEnabled=vm.writable
-   when(field.text("type")){
+   val type=field.text("type")
+   val isTitle=index==0&&type=="TEXT"
+   f.label.text=field.text("name")
+   f.label.isVisible=!isTitle&&type!="CHECKBOX"
+   if(isTitle){
+    f.inputBox.boxBackgroundMode=TextInputLayout.BOX_BACKGROUND_NONE
+    f.input.background=null
+    f.inputBox.isHintEnabled=false
+    f.input.hint=field.text("name")
+    f.input.textSize=26f
+    f.input.setTypeface(f.input.typeface,android.graphics.Typeface.BOLD)
+    f.input.setPaddingRelative(0,f.input.paddingTop,0,f.input.paddingBottom)
+    f.separator.isVisible=true
+   }else if(type!="CHECKBOX"){
+    val control=if(type=="SELECT")f.options else f.input
+    control.id=View.generateViewId()
+    f.label.labelFor=control.id
+    if(type=="TEXT")f.input.maxLines=Int.MAX_VALUE
+   }
+   f.input.setText(value);f.input.isEnabled=vm.writable
+   when(type){
     "CHECKBOX"->{f.inputBox.isVisible=false;f.check.isVisible=true;f.check.text=field.text("name");f.check.isChecked=value=="true";f.check.isEnabled=vm.writable;f.check.setOnCheckedChangeListener{_,checked->vm.change(id,checked.toString())}}
     "SELECT"->{
-     f.inputBox.isVisible=false;f.label.isVisible=true;f.label.text=field.text("name");f.options.isVisible=true;f.options.contentDescription=field.text("name");f.options.isEnabled=vm.writable
+     f.inputBox.isVisible=false;f.options.isVisible=true;f.options.isEnabled=vm.writable
      val configured=field.getAsJsonArray("options").map{it.asString};val options=listOf("")+configured+if(value.isNotBlank()&&value !in configured)listOf(value) else emptyList()
      val labels=options.map{if(it.isEmpty())getString(R.string.p0_cell_empty) else if(it !in configured)getString(R.string.p0_old_option,it) else it}
      f.options.adapter=ArrayAdapter(requireContext(),android.R.layout.simple_spinner_dropdown_item,labels);f.options.setSelection(options.indexOf(value).coerceAtLeast(0))

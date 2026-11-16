@@ -62,6 +62,7 @@ class RecordViewModel(app:Application,private val savedState:SavedStateHandle):A
  val history=MutableStateFlow<JsonObject?>(null)
  val status=MutableStateFlow("Đang tải…")
  val ready=MutableStateFlow(false)
+ val recordRefresh=MutableStateFlow(0)
  val busy=MutableStateFlow(false)
  val creationPending=MutableStateFlow(false)
  val conflict=MutableStateFlow(false)
@@ -107,10 +108,13 @@ class RecordViewModel(app:Application,private val savedState:SavedStateHandle):A
  }
  private fun parseCells(value:String)=runCatching{JsonParser.parseString(value).asJsonObject}.getOrDefault(JsonObject())
  private fun initialize(meta:JsonObject,record:JsonObject?,draft:Draft?){
+  val previousCells=raw
+  val wasReady=ready.value
   table.value=meta;writable=meta.text("role") in listOf("OWNER","EDITOR")
   if(draft==null){baseline=record?.getAsJsonObject("cells")?.deepCopy()?:JsonObject();raw=baseline.deepCopy();version=record?.get("version")?.asInt?:1;schemaVersion=meta["schemaVersion"].asInt}
   else if(draft.baselineJson.isBlank()&&record?.get("version")?.asInt==version)baseline=record.getAsJsonObject("cells").deepCopy()
   ready.value=true;status.value=if(creationPending.value)pendingCreateMessage else if(draft!=null)"Đã khôi phục bản nháp trên máy" else if(writable)"Thay đổi được lưu nháp trên máy" else "Bạn có quyền chỉ xem"
+  if(wasReady&&previousCells!=raw)recordRefresh.value++
  }
  fun change(id:String,value:String){
   if(busy.value||!writable||creationPending.value)return
@@ -120,6 +124,17 @@ class RecordViewModel(app:Application,private val savedState:SavedStateHandle):A
  }
  private val pendingCreateMessage="Chưa biết máy chủ đã tạo dòng hay chưa. Nội dung đang khóa; bấm Thử gửi lại để kiểm tra đúng yêu cầu cũ."
  private fun makeDraft()=Draft(owner,key,raw.toString(),requestId=requestId,expectedVersion=version,baselineJson=baseline.toString(),expectedSchemaVersion=schemaVersion,pendingCreateJson=pendingCreateJson)
+ fun beforeSwitch(done:()->Unit){
+  if(!ready.value||busy.value)return
+  if(!dirty){done();return}
+  busy.value=true
+  viewModelScope.launch{
+   try{draftMutex.withLock{repo.save(makeDraft())};done()}
+   catch(e:CancellationException){throw e}
+   catch(_:Exception){status.value="Chưa lưu được nháp. Hãy thử lại trước khi chuyển dòng."}
+   finally{busy.value=false}
+  }
+ }
  private fun currentTyped()=typedCells(table.value!!.objects("fields"),raw,table.value!!.objects("members"),baseline)
  private fun hideRemoteData(){
   raw=runCatching{cellChanges(baseline,currentTyped())}.getOrElse{JsonObject().apply{

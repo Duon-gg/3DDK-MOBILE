@@ -1,0 +1,17 @@
+<resources>
+    <string name="record_close">Đóng chi tiết dòng</string>
+    <string name="table_list">Danh sách bảng</string>
+    <string name="home_recent">Gần đây</string>
+    <string name="home_starred">Đã đánh dấu</string>
+    <string name="home_spaces">Không gian</string>
+    <string name="home_recent_empty">Các cơ sở dữ liệu bạn mở sẽ hiện ở đây.</string>
+    <string name="home_starred_empty">Mở một cơ sở dữ liệu rồi chọn Đánh dấu cơ sở dữ liệu trong menu để lưu ở đây.</string>
+    <string name="home_star">Đánh dấu cơ sở dữ liệu</string>
+    <string name="home_unstar">Bỏ đánh dấu cơ sở dữ liệu</string>
+    <string name="record_previous">Dòng trước</string>
+    <string name="record_next">Dòng sau</string>
+    <string name="record_position">%1$d / %2$d</string>
+    <item name="toggle_table_star" type="id"/>
+ <string name="record_detail_title">Chi tiết dòng</string>
+    <string name="home_base_opened">Mở dữ liệu %1$s</string>
+</resources>

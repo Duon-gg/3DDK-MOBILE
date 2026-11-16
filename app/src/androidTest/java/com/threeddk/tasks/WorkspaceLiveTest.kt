@@ -5,6 +5,9 @@ import androidx.test.core.app.*
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.espresso.Espresso.onView
+import androidx.test.espresso.action.ViewActions.click
+import androidx.test.espresso.action.ViewActions.replaceText
+import androidx.test.espresso.action.ViewActions.closeSoftKeyboard
 import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.matcher.ViewMatchers.*
 import androidx.navigation.fragment.NavHostFragment
@@ -72,11 +75,29 @@ class WorkspaceLiveTest {
    scenario.onActivity{activity->val nav=(activity.supportFragmentManager.findFragmentById(R.id.nav_host) as NavHostFragment).navController;nav.navigate(R.id.dataTable,Bundle().apply{putString("path",path)})}
    var visible=false
    for(attempt in 0..30){
-    try{onView(withId(R.id.heading)).check(matches(withText("Công việc của nhóm")));visible=true;break}catch(e:AssertionError){android.os.SystemClock.sleep(300)}
+    try{onView(withId(R.id.view_choice)).check(matches(withText(org.hamcrest.Matchers.startsWith("Công việc của nhóm / "))));visible=true;break}catch(e:AssertionError){android.os.SystemClock.sleep(300)}
    }
    assertTrue("Table UI did not render",visible)
    onView(withId(R.id.grid)).check{view,error->if(error!=null)throw error;assertTrue("Grid must have visible height",view.height>100)}
+   onView(withId(R.id.bottom_nav)).check(matches(withEffectiveVisibility(Visibility.GONE)))
+   onView(withId(R.id.grid)).check(matches(isDisplayed()))
+   onView(withId(R.id.query_toggle)).perform(click())
+   onView(withId(R.id.query_actions)).check(matches(isDisplayed()))
+   onView(withId(R.id.query_toggle)).perform(click())
+   onView(withId(R.id.query_actions)).check(matches(withEffectiveVisibility(Visibility.GONE)))
+   onView(withId(R.id.search_toggle)).perform(click())
+   onView(withId(R.id.search)).perform(replaceText("Bảng đã"),closeSoftKeyboard())
+   onView(withId(R.id.search_toggle)).perform(click())
+   onView(withId(R.id.search_box)).check(matches(withEffectiveVisibility(Visibility.GONE)))
    scenario.recreate();InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+   onView(withId(R.id.grid)).check(matches(isDisplayed()))
+   onView(withId(R.id.cards)).check(matches(withEffectiveVisibility(Visibility.GONE)))
+   onView(withId(R.id.search_box)).check(matches(withEffectiveVisibility(Visibility.GONE)))
+   onView(withId(R.id.search)).check(matches(withText("Bảng đã")))
+   onView(withId(R.id.search_toggle)).check(matches(isSelected()))
+   onView(withId(R.id.display_mode)).perform(click())
+   onView(withId(R.id.cards)).check(matches(isDisplayed()))
+   assertEquals("Đổi dạng hiển thị không được tạo thêm bản ghi",1,repo.query(path,query).objects("items").size)
    val bitmap=InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
    java.io.File(app.getExternalFilesDir(null),"workspace-preview.png").outputStream().use{bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}
   }

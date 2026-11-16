@@ -7,7 +7,7 @@ import {PGlite} from '@electric-sql/pglite';
 const users=Array.from({length:100},()=>crypto.randomUUID());
 const viewers=new Set(users.slice(1,21));
 const operationCount=200;
-const migrations=['202610040001_workspaces.sql','202610170001_p0_workspaces.sql'];
+const migrations=['202610040001_workspaces.sql','202610170001_p0_workspaces.sql','202611130001_base_actions.sql','202611130002_workspace_actions.sql','202611140001_workspace_trash.sql'];
 const mutation=data=>({requestId:crypto.randomUUID(),...data});
 function summary(samples) {
  const values=samples.map(sample=>sample.ms).sort((a,b)=>a-b);

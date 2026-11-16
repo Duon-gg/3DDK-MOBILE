@@ -25,6 +25,49 @@ fun refreshedViewQuery(current:JsonObject,metadata:JsonObject,viewId:String?):Js
 class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
  val session=(app as TasksApp).repository
  val repo=session.workspaces
+ val home=MutableStateFlow<List<WorkspaceRepository.HomeTable>>(emptyList())
+ val recentBases=MutableStateFlow<List<WorkspaceRepository.RecentBase>>(emptyList())
+ val workspaceStars=MutableStateFlow<Set<String>>(emptySet())
+ private var homeObserver:Job?=null
+ fun observeHome(){
+  if(homeObserver!=null)return
+  val owner=repo.uid
+  homeObserver=viewModelScope.launch{
+   launch{repo.observeHome(owner).collect{home.value=it}}
+   launch{repo.observeRecentBases(owner).collect{recentBases.value=it}}
+   launch{repo.observeWorkspaceStars(owner).collect{workspaceStars.value=it}}
+  }
+ }
+ fun rememberTable(resource:String,basePath:String,toggleStar:Boolean=false){
+  viewModelScope.launch{
+   try{repo.updateHome(resource,basePath,toggleStar)}
+   catch(e:CancellationException){throw e}
+   catch(e:Exception){error.value=friendlyError(e)}
+  }
+ }
+ fun toggleBaseStar(basePath:String){
+  viewModelScope.launch{
+   try{if(recentBases.value.none{it.path==basePath}){repo.refresh(basePath);repo.rememberBase(basePath)};repo.toggleBaseStar(basePath)}
+   catch(e:CancellationException){throw e}
+   catch(e:Exception){error.value=friendlyError(e)}
+  }
+ }
+ fun toggleWorkspaceStar(resource:String){run{repo.toggleWorkspaceStar(resource)}}
+ fun tablesInBase(basePath:String,done:(List<JsonObject>)->Unit){
+  if(busy.value)return
+  run{
+   val data=try{repo.refresh(basePath)}catch(e:java.io.IOException){repo.cached(basePath)?:throw e}
+   done(data.objects("tables"))
+  }
+ }
+ fun resolveBase(resource:String,done:(JsonObject,String?)->Unit){
+  run{
+   val base=try{repo.refresh(resource)}catch(e:java.io.IOException){repo.cached(resource)?:throw e}
+   val table=repo.recentTable(resource,base.objects("tables"))
+   repo.rememberBase(resource)
+   busy.value=false;done(base,table)
+  }
+ }
  val data=MutableStateFlow<JsonObject?>(null)
  val capabilities=MutableStateFlow<JsonObject?>(null)
  val busy=MutableStateFlow(false)
@@ -45,23 +88,44 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
  private var viewResetNotice=false
  private var pendingPair:Pair<String,JsonObject>?=null
  fun supports(feature:String)=capabilities.value?.getAsJsonObject("features")?.get(feature)?.asBoolean==true
+ fun readResource(resource:String,done:(JsonObject)->Unit){
+  if(busy.value)return
+  run{val result=repo.refresh(resource);busy.value=false;done(result)}
+ }
  fun open(resource:String){
   if(path!=resource||observer==null){path=resource;tableMode=false;observe()}
   refresh()
  }
- fun openTable(resource:String){
+ fun openTable(resource:String,initialViewId:String?=null){
   if(path!=resource||!tableMode||observer==null){
+   selectedViewId.value=initialViewId
    path=resource;tableMode=true;queryConfig=JsonObject().apply{addProperty("limit",50)};observe()
    draftObserver?.cancel();val owner=repo.uid
    draftObserver=viewModelScope.launch{session.dao.observeDrafts(owner).collect{all->drafts.value=all.filter{it.taskId.startsWith("v2/$resource/new/")||it.taskId=="v2/$resource/new"}}}
   }
   refresh()
  }
+ private var pickerJob:Job?=null
+ fun cancelPickerLoading(){pickerJob?.cancel();pickerJob=null}
+ fun pickerMetadata(resource:String,done:(JsonObject?,String?)->Unit){
+  pickerJob?.cancel()
+  pickerJob=viewModelScope.launch{
+   try{
+    val meta=try{repo.metadata(resource)}catch(e:java.io.IOException){repo.cached(resource,"v2-meta")?:throw e}
+    done(meta,null)
+   }catch(e:CancellationException){throw e}catch(e:Exception){done(null,friendlyError(e))}
+  }
+ }
+ private var rememberedBase=""
  private fun observe(){
   observer?.cancel();data.value=null
   val owner=repo.uid;val scope=queryConfig.deepCopy()
   observer=viewModelScope.launch{
    (if(tableMode)repo.observeTable(owner,path,scope) else repo.observe(owner,path)).collect{
+    if(it!=null&&!tableMode&&path.startsWith("bases/")&&rememberedBase!=path){
+     repo.rememberBase(path)
+     rememberedBase=path
+    }
     data.value=it;hasMore.value=it?.get("hasMore")?.asBoolean==true
    }
   }
