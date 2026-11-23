@@ -10,7 +10,7 @@ import org.junit.Test
 
 class CsvImportTest {
  @Test fun parsesQuotesNewlinesAndBom(){
-  val rows=parseCsv("﻿Tên,Chi tiết\r\n\"A, b\",\"dòng 1\ndòng \"\"2\"\"\"\r\n\r\nC,\n")
+  val rows=parseCsv("\uFEFFTên,Chi tiết\r\n\"A, b\",\"dòng 1\ndòng \"\"2\"\"\"\r\n\r\nC,\n")
   assertEquals(listOf(listOf("Tên","Chi tiết"),listOf("A, b","dòng 1\ndòng \"2\""),listOf("C","")),rows)
  }
  @Test fun infersTypes(){

@@ -5,7 +5,7 @@ import com.google.gson.JsonObject
 /** RFC 4180 CSV: quoted fields, doubled quotes, CRLF/LF, newlines inside quotes, leading BOM. */
 fun parseCsv(text:String):List<List<String>>{
  val rows=mutableListOf<List<String>>();var row=mutableListOf<String>();val cell=StringBuilder()
- var quoted=false;var i=if(text.startsWith('﻿'))1 else 0
+ var quoted=false;var i=if(text.startsWith('\uFEFF'))1 else 0
  while(i<text.length){
   val c=text[i]
   if(quoted){
