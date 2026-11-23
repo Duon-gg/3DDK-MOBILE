@@ -27,9 +27,6 @@ class MainActivity:AppCompatActivity(){
   binding.bottomNav.setupWithNavController(nav)
   nav.addOnDestinationChangedListener{_,destination,args->
    updateNavigation()
-   binding.toolbar.setBackgroundColor(getColor(
-    if(destination.id==R.id.dataTable) R.color.mobile_table_toolbar else R.color.mobile_surface
-   ))
    if(destination.id==R.id.recordEditor){
     val id=args?.getString("recordId") ?: "new"
     if(id=="new"||id.startsWith("new/"))supportActionBar?.setTitle(R.string.p0_them_dong)

@@ -14,4 +14,13 @@
     <item name="toggle_table_star" type="id"/>
  <string name="record_detail_title">Chi tiết dòng</string>
     <string name="home_base_opened">Mở dữ liệu %1$s</string>
+  <string name="import_csv">Nhập CSV</string>
+  <string name="import_csv_unreadable">Không đọc được file CSV</string>
+  <string name="field_edit">Sửa cột</string>
+  <string name="field_duplicate">Nhân bản cột</string>
+  <string name="field_delete">Xoá cột</string>
+  <string name="field_delete_title">Xoá cột %1$s?</string>
+  <string name="field_delete_message">Dữ liệu của cột này trong mọi dòng sẽ bị xoá và không khôi phục được. Bộ lọc và sắp xếp dùng cột này cũng bị bỏ.</string>
+  <string name="field_menu_description">Tùy chọn cột %1$s</string>
+  <string name="record_duplicate">Nhân bản dòng</string>
 </resources>

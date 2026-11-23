@@ -289,6 +289,46 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
   mutate("POST","$path/fields",JsonObject().apply{addProperty("name",name.trim());addProperty("type",type);add("options",Gson().toJsonTree(options));addProperty("expectedSchemaVersion",data.value?.get("schemaVersion")?.asInt?:1)}){done()}
   return null
  }
+ fun canEditFields()=data.value?.text("role")=="OWNER"&&supports("fieldEdit")
+ /** Same checks as createField; PATCH rolls back server-side if existing cells don't fit the new type/options. */
+ fun updateField(field:JsonObject,name:String,type:String,rawOptions:String,done:()->Unit):Int?{
+  if(name.trim().length !in 1..100)return R.string.p0_nhap_ten_tu_1_den_100_ky_tu
+  val options=rawOptions.split(',').map{it.trim()}.filter{it.isNotEmpty()}.distinct()
+  if(type=="SELECT"&&(options.isEmpty()||options.size>30||options.any{it.length>100}))return R.string.p0_nhap_tu_1_den_30_lua_chon_moi
+  mutate("PATCH","$path/fields/${field.text("id")}",JsonObject().apply{addProperty("name",name.trim());addProperty("type",type);add("options",Gson().toJsonTree(options));addProperty("expectedSchemaVersion",data.value?.get("schemaVersion")?.asInt?:1)}){done()}
+  return null
+ }
+ fun deleteField(field:JsonObject)=mutate("DELETE","$path/fields/${field.text("id")}",JsonObject().apply{addProperty("expectedSchemaVersion",data.value?.get("schemaVersion")?.asInt?:1)})
+ fun duplicateField(field:JsonObject){
+  val names=data.value?.objects("fields").orEmpty().map{it.text("name").lowercase()}.toSet()
+  val name=generateSequence(1){it+1}.map{if(it==1)"${field.text("name")} (bản sao)" else "${field.text("name")} (bản sao $it)"}.first{it.lowercase() !in names}.take(100)
+  createField(name,field.text("type"),field.getAsJsonArray("options")?.joinToString(","){it.asString}.orEmpty()){}
+ }
+ /** Imports CSV rows into this table: matches headers to fields by name, creates missing fields, then one record per row. */
+ fun importCsv(text:String){
+  val rows=com.threeddk.tasks.data.parseCsv(text)
+  if(rows.size<2||rows.size>501){error.value="File CSV cần dòng tiêu đề và từ 1 đến 500 dòng dữ liệu";return}
+  val header=rows[0].map{it.trim()};val body=rows.drop(1)
+  if(header.any{it.length !in 1..100}){error.value="Tên cột trong CSV phải từ 1 đến 100 ký tự";return}
+  // Own job: run{} shares requestJob, which the table's re-query on resume cancels.
+  viewModelScope.launch{try{
+   busy.value=true;error.value=null
+   var meta=repo.metadata(path)
+   for((col,name) in header.withIndex()){
+    if(meta.objects("fields").any{it.text("name").equals(name,true)})continue
+    val (type,options)=com.threeddk.tasks.data.inferFieldType(body.map{it.getOrElse(col){""}})
+    repo.mutate("POST","$path/fields",JsonObject().apply{addProperty("requestId",java.util.UUID.randomUUID().toString());addProperty("name",name);addProperty("type",type);add("options",Gson().toJsonTree(options));addProperty("expectedSchemaVersion",meta["schemaVersion"].asInt)})
+    meta=repo.metadata(path)
+   }
+   val fields=header.map{name->meta.objects("fields").first{it.text("name").equals(name,true)}}
+   for(row in body){
+    val cells=JsonObject()
+    fields.forEachIndexed{col,field->com.threeddk.tasks.data.csvCell(field,row.getOrElse(col){""})?.let{cells.add(field.text("id"),it)}}
+    repo.mutate("POST","$path/records",JsonObject().apply{addProperty("requestId",java.util.UUID.randomUUID().toString());addProperty("expectedVersion",1);addProperty("expectedSchemaVersion",meta["schemaVersion"].asInt);add("cells",cells)})
+   }
+   reload();note.value="Đã nhập ${body.size} dòng từ CSV"
+  }catch(e:CancellationException){throw e}catch(e:Exception){error.value=friendlyError(e)}finally{busy.value=false}}
+ }
  fun draftLabels():Array<String>{
   val firstField=data.value?.objects("fields")?.firstOrNull()?.text("id")
   return drafts.value.mapIndexed{index,draft->runCatching{JsonParser.parseString(draft.description).asJsonObject.text(firstField.orEmpty()).take(100)}.getOrDefault("").ifBlank{getApplication<Application>().getString(R.string.p0_new_row_number,index+1)}}.toTypedArray()
