@@ -1,15 +1,14 @@
 <resources>
- <color name="mobile_primary">#2563EB</color>
+ <color name="mobile_primary">#166EE1</color>
  <color name="mobile_on_primary">#FFFFFF</color>
  <color name="mobile_primary_container">#EAF1FF</color>
  <color name="mobile_on_primary_container">#173B88</color>
  <color name="mobile_surface">#FFFFFF</color>
  <color name="mobile_background">#FFFFFF</color>
  <color name="mobile_surface_variant">#F3F4F5</color>
- <color name="mobile_text">#202124</color>
+ <color name="mobile_text">#1D1F25</color>
  <color name="mobile_secondary_text">#555960</color>
  <color name="mobile_outline">#667085</color>
  <color name="mobile_border">#E4E7EC</color>
- <color name="mobile_table_toolbar">#FFF1BF</color>
  <color name="mobile_grid_line">#E0E2E4</color>
 </resources>

@@ -44,6 +44,11 @@ class DataTableFragment:Fragment(){
  private lateinit var cardAdapter:RecordCardAdapter
  private var showCards=false
  private var searchExpanded=false
+ private val pickCsv=registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()){uri->
+  if(uri==null)return@registerForActivityResult
+  val text=runCatching{requireContext().contentResolver.openInputStream(uri)!!.use{it.readBytes().take(2_000_000).toByteArray().toString(Charsets.UTF_8)}}.getOrNull()
+  if(text==null)com.google.android.material.snackbar.Snackbar.make(requireView(),R.string.import_csv_unreadable,com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show() else vm.importCsv(text)
+ }
  override fun onCreateView(i:LayoutInflater,c:ViewGroup?,s:Bundle?)=FragmentDataTableBinding.inflate(i,c,false).also{binding=it}.root
  override fun onViewCreated(v:View,s:Bundle?){
   val b=binding!!
@@ -100,7 +105,7 @@ class DataTableFragment:Fragment(){
   adapter.members=data.objects("members")
   cardAdapter.members=adapter.members
   val signature=shown.toString()+primary.toString()+adapter.members.toString()
-  if(schema!=signature||b.header.childCount==0){schema=signature;b.header.removeAllViews();gridFields.forEach{b.header.addView(gridCell(requireContext(),it.text("name"),it.text("type"),true))};adapter.fields=gridFields;adapter.primary=primary;cardAdapter.fields=shown;adapter.notifyDataSetChanged();cardAdapter.notifyDataSetChanged()}
+  if(schema!=signature||b.header.childCount==0){schema=signature;b.header.removeAllViews();gridFields.forEach{f->b.header.addView(gridCell(requireContext(),f.text("name"),f.text("type"),true).apply{if(vm.canEditFields()){isClickable=true;setBackgroundResource(android.R.drawable.list_selector_background);contentDescription=getString(R.string.field_menu_description,f.text("name"));setOnClickListener{fieldMenu(f)}}})};adapter.fields=gridFields;adapter.primary=primary;cardAdapter.fields=shown;adapter.notifyDataSetChanged();cardAdapter.notifyDataSetChanged()}
   val records=data.objects("records");adapter.submitList(records);cardAdapter.submitList(records);b.empty.isVisible=records.isEmpty()
   val filtered=b.search.text?.isNotBlank()==true||conditions().isNotEmpty()
   b.empty.text=if(data.get("queryCached")?.asBoolean!=true)getString(R.string.p0_query_not_cached) else if(filtered)getString(R.string.p0_khong_co_dong_phu_hop_thu_doi_tim) else getString(R.string.p0_chua_co_dong_trong_du_lieu_da_tai)
@@ -189,10 +194,10 @@ class DataTableFragment:Fragment(){
   }
   menu.add(0,R.id.display_mode,0,getString(if(showCards)R.string.mobile_show_grid else R.string.mobile_show_cards)).setIcon(if(showCards)R.drawable.ic_table else R.drawable.ic_cards).setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
   if(vm.supports("savedViews")){menu.add(0,11,0,getString(R.string.p0_luu_thanh_che_do_xem_moi));if(editableView()!=null)menu.add(0,12,1,getString(R.string.p0_luu_thay_doi_che_do_xem))}
-  if(vm.data.value?.text("role")=="OWNER")menu.add(0,10,2,getString(R.string.p0_them_cot))
+  if(vm.data.value?.text("role")=="OWNER"){menu.add(0,10,2,getString(R.string.p0_them_cot));menu.add(0,14,2,getString(R.string.import_csv))}
   if(vm.drafts.value.isNotEmpty())menu.add(0,13,3,getString(R.string.p0_draft_count,vm.drafts.value.size))
  }
- override fun onOptionsItemSelected(item:MenuItem):Boolean{when(item.itemId){R.id.display_mode->{showCards=!showCards;updatePresentation();requireActivity().invalidateOptionsMenu()};R.id.toggle_table_star->if(!vm.accessDenied.value)vm.toggleBaseStar(basePath);10->addField();11->saveView();12->updateView();13->drafts();else->return super.onOptionsItemSelected(item)};return true}
+ override fun onOptionsItemSelected(item:MenuItem):Boolean{when(item.itemId){R.id.display_mode->{showCards=!showCards;updatePresentation();requireActivity().invalidateOptionsMenu()};R.id.toggle_table_star->if(!vm.accessDenied.value)vm.toggleBaseStar(basePath);10->addField();11->saveView();12->updateView();13->drafts();14->pickCsv.launch(arrayOf("text/*","application/csv","application/vnd.ms-excel"));else->return super.onOptionsItemSelected(item)};return true}
  private fun drafts(){
   val items=vm.drafts.value;val labels=vm.draftLabels()
   dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.p0_ban_nhap_chua_gui_len_bang)).setItems(labels){_,index->
@@ -262,14 +267,26 @@ class DataTableFragment:Fragment(){
    vm.updateSelectedView()
   }.setNegativeButton(getString(R.string.p0_huy),null).show()
  }
- private fun addField(){
+ private fun fieldMenu(field:JsonObject){
+  dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(field.text("name")).setItems(arrayOf(getString(R.string.field_edit),getString(R.string.field_duplicate),getString(R.string.field_delete))){_,which->when(which){
+   0->addField(field)
+   1->vm.duplicateField(field)
+   else->dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.field_delete_title,field.text("name"))).setMessage(R.string.field_delete_message).setPositiveButton(R.string.field_delete){_,_->vm.deleteField(field)}.setNegativeButton(R.string.p0_huy,null).show()
+  }}.show()
+ }
+ private fun addField(field:JsonObject?=null){
   val b=DialogInputBinding.inflate(layoutInflater);b.valueBox.hint=getString(R.string.p0_ten_cot)
   val types=vm.fieldTypes()
   b.choice.adapter=ArrayAdapter(requireContext(),android.R.layout.simple_spinner_dropdown_item,listOf(getString(R.string.p0_van_ban),getString(R.string.p0_so),getString(R.string.p0_ngay),getString(R.string.p0_danh_dau),getString(R.string.p0_lua_chon))+if(types.contains("USER"))listOf(getString(R.string.p0_thanh_vien_phu_trach)) else emptyList())
   b.choice.onItemSelectedListener=object:AdapterView.OnItemSelectedListener{override fun onItemSelected(p:AdapterView<*>?,v:View?,position:Int,id:Long){b.extraBox.isVisible=position==4};override fun onNothingSelected(p:AdapterView<*>?){} }
-  val d=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.p0_them_cot_tuy_chinh)).setView(b.root).setPositiveButton(getString(R.string.p0_them),null).setNegativeButton(getString(R.string.p0_huy),null).create();dialog=d
+  if(field!=null){
+   b.value.setText(field.text("name"));types.indexOf(field.text("type")).takeIf{it>=0}?.let{b.choice.setSelection(it)}
+   b.extra.setText(field.getAsJsonArray("options")?.joinToString(", "){it.asString}.orEmpty())
+  }
+  val d=MaterialAlertDialogBuilder(requireContext()).setTitle(if(field==null)getString(R.string.p0_them_cot_tuy_chinh) else getString(R.string.field_edit)).setView(b.root).setPositiveButton(getString(if(field==null)R.string.p0_them else R.string.p0_luu),null).setNegativeButton(getString(R.string.p0_huy),null).create();dialog=d
   d.setOnShowListener{d.getButton(-1).setOnClickListener{
-   val error=vm.createField(b.value.text.toString(),types[b.choice.selectedItemPosition],b.extra.text.toString()){if(isAdded)d.dismiss()}
+   val error=if(field==null)vm.createField(b.value.text.toString(),types[b.choice.selectedItemPosition],b.extra.text.toString()){if(isAdded)d.dismiss()}
+    else vm.updateField(field,b.value.text.toString(),types[b.choice.selectedItemPosition],b.extra.text.toString()){if(isAdded)d.dismiss()}
    b.valueBox.error=null;b.extraBox.error=null
    if(error!=null){if(error==R.string.p0_nhap_ten_tu_1_den_100_ky_tu)b.valueBox.error=getString(error) else b.extraBox.error=getString(error)}
 

@@ -240,6 +240,17 @@ class RecordViewModel(app:Application,private val savedState:SavedStateHandle):A
    }catch(e:CancellationException){throw e}catch(e:Exception){handleWriteError(e)}finally{busy.value=false}
   }
  }
+ val duplicated=MutableStateFlow<String?>(null)
+ /** Copies the saved cells (not unsaved edits) into a new record, like Airtable's "Duplicate record". */
+ fun duplicate(){
+  if(busy.value||!canArchive||conflict.value)return
+  viewModelScope.launch{busy.value=true
+   try{
+    val created=repo.mutate("POST","$path/records",JsonObject().apply{addProperty("requestId",java.util.UUID.randomUUID().toString());addProperty("expectedVersion",1);addProperty("expectedSchemaVersion",schemaVersion);add("cells",baseline.deepCopy())})
+    duplicated.value=created.text("id").ifBlank{null}
+   }catch(e:CancellationException){throw e}catch(e:Exception){handleWriteError(e)}finally{busy.value=false}
+  }
+ }
  fun loadHistory(){if(recordId=="new"||busy.value)return;viewModelScope.launch{
   try{history.value=repo.cached("$path/records/$recordId/history");repo.refresh("$path/records/$recordId/history");history.value=repo.cached("$path/records/$recordId/history")}
   catch(e:CancellationException){throw e}catch(e:Exception){if(e is ApiException&&e.code in listOf("FORBIDDEN","UNAUTHORIZED","NOT_FOUND"))hideRemoteData();status.value=friendlyError(e)}

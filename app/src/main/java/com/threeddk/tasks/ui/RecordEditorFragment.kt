@@ -52,7 +52,7 @@ class RecordEditorFragment:Fragment(){
   watch(vm.table){if(it==null){b.fields.removeAllViews();dialog?.dismiss();dateDialog?.dismiss();rendered=false;schema="";requireActivity().invalidateOptionsMenu()}else{val signature=it.objects("fields").toString()+it.objects("members").toString();if(vm.ready.value&&signature!=schema)render()}}
   watch(vm.status){b.status.text=it;updateEnabled()};watch(vm.busy){updateEnabled()}
   watch(vm.creationPending){if(it){dialog?.dismiss();dateDialog?.dismiss()};updateEnabled()}
-  watch(vm.conflict){b.reconcile.isVisible=it;if(!it&&vm.ready.value)render();updateEnabled()};watch(vm.finished){if(it)findNavController().popBackStack()}
+  watch(vm.conflict){b.reconcile.isVisible=it;if(!it&&vm.ready.value)render();updateEnabled()};watch(vm.finished){if(it)findNavController().popBackStack()};watch(vm.duplicated){if(it!=null){vm.duplicated.value=null;switchRow(it)}}
   watch(vm.history){if(historyRequested&&it!=null){historyRequested=false;showHistory(it)}}
   vm.open(requireArguments().getString("path")!!,recordId)
  }
@@ -66,12 +66,13 @@ class RecordEditorFragment:Fragment(){
     navOptions{popUpTo(R.id.recordEditor){inclusive=true}})
   }
  }
- override fun onCreateOptionsMenu(menu:Menu,inflater:MenuInflater){if(vm.canArchive)menu.add(0,20,0,getString(R.string.p0_luu_tru_dong));if(recordId!="new"&&!recordId.startsWith("new/")&&vm.ready.value)menu.add(0,21,1,getString(R.string.p0_lich_su_thay_doi));if(vm.ready.value||vm.raw.size()>0)menu.add(0,22,2,getString(R.string.p0_sao_chep_ban_nhap))}
+ override fun onCreateOptionsMenu(menu:Menu,inflater:MenuInflater){if(vm.canArchive)menu.add(0,20,0,getString(R.string.p0_luu_tru_dong));if(recordId!="new"&&!recordId.startsWith("new/")&&vm.ready.value)menu.add(0,21,1,getString(R.string.p0_lich_su_thay_doi));if(vm.ready.value||vm.raw.size()>0)menu.add(0,22,2,getString(R.string.p0_sao_chep_ban_nhap));if(vm.canArchive)menu.add(0,23,3,getString(R.string.record_duplicate))}
  override fun onOptionsItemSelected(item:MenuItem):Boolean{
   when(item.itemId){
    20->dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.p0_luu_tru_dong_nay)).setMessage(getString(R.string.p0_dong_se_bien_mat_khoi_bang_nhap_tren)).setPositiveButton(getString(R.string.p0_luu_tru)){_,_->vm.archive()}.setNegativeButton(getString(R.string.p0_huy),null).show()
    21->{historyRequested=true;if(vm.history.value!=null){historyRequested=false;showHistory(vm.history.value!!)}else vm.loadHistory()}
    22->copyDraft()
+   23->vm.duplicate()
    else->return super.onOptionsItemSelected(item)
   };return true
  }
