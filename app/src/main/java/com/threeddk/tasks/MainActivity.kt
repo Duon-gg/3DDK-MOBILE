@@ -53,6 +53,19 @@ class MainActivity:AppCompatActivity(){
  private fun receiveIntent(intent:Intent){intent.getStringExtra("taskId")?.let{if(runCatching{java.util.UUID.fromString(it)}.isSuccess)vm.pendingTaskId=it};intent.removeExtra("taskId")}
  private fun openPending(){if(vm.session.value=="READY"&&vm.pendingTaskId!=null){vm.pendingTaskId=null;vm.message.value="Thông báo này thuộc phiên bản công việc trước."}}
  override fun onSupportNavigateUp()=nav.navigateUp()||super.onSupportNavigateUp()
+ /** Airtable-style chrome: toolbar and system-bar strips take a base's tile colour (bg to text); null restores defaults. */
+ fun paintChrome(tile:Pair<Int,Int>?){
+  val toolbar=binding.toolbar
+  val ink=tile?.second?:com.google.android.material.color.MaterialColors.getColor(toolbar,com.google.android.material.R.attr.colorOnSurface)
+  val surface=com.google.android.material.color.MaterialColors.getColor(toolbar,com.google.android.material.R.attr.colorSurface)
+  toolbar.setBackgroundColor(tile?.first?:android.graphics.Color.TRANSPARENT);toolbar.setTitleTextColor(ink)
+  // The up arrow is a DrawerArrowDrawable that paints with its own colour and ignores tint; NavController swaps it after view creation.
+  val paintIcons=Runnable{(toolbar.navigationIcon as? androidx.appcompat.graphics.drawable.DrawerArrowDrawable)?.color=ink;toolbar.overflowIcon?.setTint(ink);Unit}
+  paintIcons.run();toolbar.post(paintIcons)
+  @Suppress("DEPRECATION") window.statusBarColor=tile?.first?:surface
+  binding.root.setBackgroundColor(tile?.first?:surface);binding.navHost.setBackgroundColor(surface)
+  WindowCompat.getInsetsController(window,window.decorView).apply{val light=tile==null||tile.second!=android.graphics.Color.WHITE;isAppearanceLightStatusBars=light;isAppearanceLightNavigationBars=light}
+ }
  override fun onResume(){super.onResume();if(vm.session.value=="READY")vm.refresh()}
 }
 
