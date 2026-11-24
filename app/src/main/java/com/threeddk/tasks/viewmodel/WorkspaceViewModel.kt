@@ -272,6 +272,15 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
   val next=sorts().filter{it.text("fieldId")!=fieldId}+JsonObject().apply{addProperty("fieldId",fieldId);addProperty("direction",if(descending)"desc" else "asc")}
   if(next.size<=3)queryTable(sort=Gson().toJsonTree(next).asJsonArray)
  }
+ /** Kanban drop: set one SELECT cell; the board only changes after the server accepts it, so a failure leaves the card where it was. */
+ fun moveCard(recordId:String,fieldId:String,value:String?){
+  val record=data.value?.objects("records")?.firstOrNull{it.text("id")==recordId}?:return
+  mutate("PATCH","$path/records/$recordId/cells",JsonObject().apply{
+   addProperty("expectedVersion",record.get("version")?.asInt?:1);addProperty("expectedSchemaVersion",data.value?.get("schemaVersion")?.asInt?:1)
+   add("changes",JsonObject().apply{if(value==null)add(fieldId,JsonNull.INSTANCE) else addProperty(fieldId,value)})
+  })
+ }
+ fun canEditRecords()=data.value?.text("role") in listOf("OWNER","EDITOR")
  /** Column order is part of the view config (fieldOrder), so "Lưu thay đổi chế độ xem" persists it like Airtable. */
  fun setFieldOrder(ids:List<String>){queryConfig=queryConfig.deepCopy().apply{add("fieldOrder",Gson().toJsonTree(ids))}}
  fun selectColumns(fields:List<JsonObject>,checked:BooleanArray){
@@ -284,12 +293,12 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
   mutate("PATCH","$path/views/${view.text("id")}",payload){selectView(view.text("id"))}
  }
  fun fieldTypes()=listOf("TEXT","NUMBER","DATE","CHECKBOX","SELECT")+(if(supports("userFields"))listOf("USER") else emptyList())+if(supports("richFields"))listOf("LONG_TEXT","MULTI_SELECT","URL","EMAIL","PHONE") else emptyList()
- fun createField(name:String,type:String,rawOptions:String,done:()->Unit):Int?{
+ fun createField(name:String,type:String,rawOptions:String,position:Int?=null,created:(String)->Unit={},done:()->Unit):Int?{
   if(name.trim().length !in 1..100)return R.string.p0_nhap_ten_tu_1_den_100_ky_tu
   val options=rawOptions.split(',').map{it.trim()}.filter{it.isNotEmpty()}.distinct()
   if(type in listOf("SELECT","MULTI_SELECT")&&(options.isEmpty()||options.size>30||options.any{it.length>100}))return R.string.p0_nhap_tu_1_den_30_lua_chon_moi
   if(type !in fieldTypes())return R.string.p0_nhap_ten_tu_1_den_100_ky_tu
-  mutate("POST","$path/fields",JsonObject().apply{addProperty("name",name.trim());addProperty("type",type);add("options",Gson().toJsonTree(options));addProperty("expectedSchemaVersion",data.value?.get("schemaVersion")?.asInt?:1)}){done()}
+  mutate("POST","$path/fields",JsonObject().apply{addProperty("name",name.trim());addProperty("type",type);add("options",Gson().toJsonTree(options));addProperty("expectedSchemaVersion",data.value?.get("schemaVersion")?.asInt?:1);if(position!=null&&supports("fieldInsert"))addProperty("position",position)}){done();created(it.text("id"))}
   return null
  }
  fun canEditFields()=data.value?.text("role")=="OWNER"&&supports("fieldEdit")

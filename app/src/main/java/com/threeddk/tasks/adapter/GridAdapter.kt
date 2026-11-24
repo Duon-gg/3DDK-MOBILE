@@ -64,8 +64,9 @@ import com.threeddk.tasks.ui.cellLabel
    if(!icon){setTextColor(com.google.android.material.color.MaterialColors.getColor(this,com.google.android.material.R.attr.colorOnSurfaceVariant));return@apply}
    val ink=com.google.android.material.color.MaterialColors.getColor(this,com.google.android.material.R.attr.colorOnSurfaceVariant)
    setTextColor(ink)
-   val icon=when(type){"NUMBER"->R.drawable.ic_field_number;"LONG_TEXT"->R.drawable.ic_field_long_text;"MULTI_SELECT"->R.drawable.ic_field_multi;"URL"->R.drawable.ic_field_url;"EMAIL"->R.drawable.ic_field_email;"PHONE"->R.drawable.ic_field_phone;"DATE"->R.drawable.ic_field_date;"CHECKBOX"->R.drawable.ic_field_checkbox;"SELECT"->R.drawable.ic_field_select;"USER"->R.drawable.ic_field_user;else->R.drawable.ic_field_text}
+   val icon=fieldTypeIcon(type)
    setCompoundDrawablesRelativeWithIntrinsicBounds(icon,0,0,0);compoundDrawablePadding=(6*density).toInt()
    compoundDrawableTintList=android.content.res.ColorStateList.valueOf(ink)
   }
  }
+ internal fun fieldTypeIcon(type:String)=when(type){"NUMBER"->R.drawable.ic_field_number;"LONG_TEXT"->R.drawable.ic_field_long_text;"MULTI_SELECT"->R.drawable.ic_field_multi;"URL"->R.drawable.ic_field_url;"EMAIL"->R.drawable.ic_field_email;"PHONE"->R.drawable.ic_field_phone;"DATE"->R.drawable.ic_field_date;"CHECKBOX"->R.drawable.ic_field_checkbox;"SELECT"->R.drawable.ic_field_select;"USER"->R.drawable.ic_field_user;else->R.drawable.ic_field_text}

@@ -1,6 +1,7 @@
 package com.threeddk.tasks.ui
 import com.threeddk.tasks.adapter.GridAdapter
 import com.threeddk.tasks.adapter.gridCell
+import com.threeddk.tasks.adapter.fieldTypeIcon
 import com.threeddk.tasks.model.objects
 import com.threeddk.tasks.model.text
 import com.threeddk.tasks.viewmodel.WorkspaceViewModel
@@ -66,7 +67,7 @@ class DataTableFragment:Fragment(){
   }
   adapter=GridAdapter(::edit);b.grid.layoutManager=LinearLayoutManager(requireContext());b.grid.adapter=adapter
   cardAdapter=RecordCardAdapter(::edit);b.cards.layoutManager=LinearLayoutManager(requireContext());b.cards.adapter=cardAdapter
-  kanbanAdapter=com.threeddk.tasks.adapter.KanbanAdapter(::edit);b.kanban.layoutManager=LinearLayoutManager(requireContext(),LinearLayoutManager.HORIZONTAL,false);b.kanban.adapter=kanbanAdapter
+  kanbanAdapter=com.threeddk.tasks.adapter.KanbanAdapter(::edit,::moveCard,::chooseCardColumn);b.kanban.layoutManager=LinearLayoutManager(requireContext(),LinearLayoutManager.HORIZONTAL,false);b.kanban.adapter=kanbanAdapter
   layoutMode=prefs.getString("$path/layout","GRID")!!;groupFieldId=prefs.getString("$path/group",null);kanbanFieldId=prefs.getString("$path/kanban",null)
   b.group.setOnClickListener{chooseGroup()}
   searchExpanded=s?.getBoolean("searchExpanded",searchExpanded)?:searchExpanded
@@ -102,6 +103,16 @@ class DataTableFragment:Fragment(){
    if(stacks.isEmpty()){binding?.status?.apply{isVisible=true;setText(R.string.kanban_need_select)};return@setSingleChoiceItems}
    fun use(field:JsonObject){layoutMode="KANBAN";kanbanFieldId=field.text("id");saveLayout();render();requireActivity().invalidateOptionsMenu()}
    if(stacks.size==1)use(stacks[0]) else dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.kanban_stack_by).setItems(stacks.map{it.text("name")}.toTypedArray()){_,j->use(stacks[j])}.setNegativeButton(R.string.p0_huy,null).show()
+  }.setNegativeButton(R.string.p0_huy,null).show()
+ }
+ private fun moveCard(recordId:String,value:String?){kanbanFieldId?.let{vm.moveCard(recordId,it,value)}}
+ /** Non-drag path (screen readers, or anyone who prefers a list): pick the target column. */
+ private fun chooseCardColumn(recordId:String){
+  val columns=kanbanAdapter.columns;val current=columns.indexOfFirst{c->c.second.any{it.text("id")==recordId}}
+  val title=columns.getOrNull(current)?.second?.firstOrNull{it.text("id")==recordId}?.let{r->vm.data.value?.objects("fields")?.firstOrNull()?.let{f->r.getAsJsonObject("cells")?.get(f.text("id"))?.takeUnless{it.isJsonNull}?.asString}}.orEmpty()
+  val labels=columns.map{it.first?:getString(R.string.p0_cell_empty)}
+  dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.kanban_move_to,title)).setSingleChoiceItems(labels.toTypedArray(),current){d,i->
+   d.dismiss();if(i!=current)moveCard(recordId,columns[i].first)
   }.setNegativeButton(R.string.p0_huy,null).show()
  }
  private fun chooseGroup(){
@@ -150,7 +161,7 @@ class DataTableFragment:Fragment(){
   }
   val stack=fields.firstOrNull{it.text("id")==kanbanFieldId&&it.text("type")=="SELECT"}
   if(layoutMode=="KANBAN"&&stack==null){layoutMode="GRID";updatePresentation()}
-  if(stack!=null){kanbanAdapter.fields=shown;kanbanAdapter.members=adapter.members;kanbanAdapter.columns=com.threeddk.tasks.viewmodel.kanbanColumns(records,stack);kanbanAdapter.notifyDataSetChanged()}
+  if(stack!=null){kanbanAdapter.editable=vm.canEditRecords();kanbanAdapter.fields=shown;kanbanAdapter.members=adapter.members;kanbanAdapter.columns=com.threeddk.tasks.viewmodel.kanbanColumns(records,stack);kanbanAdapter.notifyDataSetChanged()}
   val filtered=b.search.text?.isNotBlank()==true||conditions().isNotEmpty()
   b.empty.text=if(data.get("queryCached")?.asBoolean!=true)getString(R.string.p0_query_not_cached) else if(filtered)getString(R.string.p0_khong_co_dong_phu_hop_thu_doi_tim) else getString(R.string.p0_chua_co_dong_trong_du_lieu_da_tai)
   b.filter.text=getString(R.string.p0_filter_count,conditions().size);b.sort.text=getString(R.string.p0_sort_count,sortItems().size)
@@ -321,14 +332,45 @@ class DataTableFragment:Fragment(){
    vm.updateSelectedView()
   }.setNegativeButton(getString(R.string.p0_huy),null).show()
  }
+ /** Airtable-style field sheet: header with the field's type icon, then one row per action. */
  private fun fieldMenu(field:JsonObject){
-  dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(field.text("name")).setItems(arrayOf(getString(R.string.field_edit),getString(R.string.field_duplicate),getString(R.string.field_delete))){_,which->when(which){
-   0->addField(field)
-   1->vm.duplicateField(field)
-   else->dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.field_delete_title,field.text("name"))).setMessage(R.string.field_delete_message).setPositiveButton(R.string.field_delete){_,_->vm.deleteField(field)}.setNegativeButton(R.string.p0_huy,null).show()
-  }}.show()
+  val ctx=requireContext();val sheet=com.google.android.material.bottomsheet.BottomSheetDialog(ctx);val density=resources.displayMetrics.density
+  val ink=com.google.android.material.color.MaterialColors.getColor(binding!!.root,com.google.android.material.R.attr.colorOnSurface)
+  fun row(text:String,icon:Int,heading:Boolean=false,action:(()->Unit)?=null)=TextView(ctx).apply{
+   this.text=text;textSize=if(heading)18f else 16f;setTextColor(ink);gravity=Gravity.CENTER_VERTICAL;minHeight=(56*density).toInt()
+   setPadding((24*density).toInt(),0,(24*density).toInt(),0);compoundDrawablePadding=(20*density).toInt()
+   setCompoundDrawablesRelativeWithIntrinsicBounds(icon,0,0,0);compoundDrawableTintList=android.content.res.ColorStateList.valueOf(ink)
+   if(heading){setTypeface(typeface,Typeface.BOLD);androidx.core.view.ViewCompat.setAccessibilityHeading(this,true)}
+   if(action!=null){setBackgroundResource(android.R.drawable.list_selector_background);setOnClickListener{sheet.dismiss();action()}}
+  }
+  val shown=vm.displayedFields()
+  val list=LinearLayout(ctx).apply{orientation=LinearLayout.VERTICAL;setPadding(0,(8*density).toInt(),0,(16*density).toInt())}
+  list.addView(row(field.text("name"),fieldTypeIcon(field.text("type")),heading=true))
+  list.addView(row(getString(R.string.field_edit),R.drawable.ic_field_customize){addField(field)})
+  list.addView(row(getString(R.string.field_duplicate),R.drawable.ic_field_duplicate){vm.duplicateField(field)})
+  list.addView(row(getString(R.string.field_insert_left),R.drawable.ic_field_insert_left){addField(insertNextTo=field,right=false)})
+  list.addView(row(getString(R.string.field_insert_right),R.drawable.ic_field_insert_right){addField(insertNextTo=field,right=true)})
+  if(shown.size>1)list.addView(row(getString(R.string.field_hide),R.drawable.ic_field_hide){
+   val fields=vm.data.value?.objects("fields").orEmpty();vm.selectColumns(fields,BooleanArray(fields.size){fields[it] in shown&&fields[it].text("id")!=field.text("id")});render()
+  })
+  list.addView(row(getString(R.string.field_delete),R.drawable.ic_field_delete){
+   dialog=MaterialAlertDialogBuilder(ctx).setTitle(getString(R.string.field_delete_title,field.text("name"))).setMessage(R.string.field_delete_message).setPositiveButton(R.string.field_delete){_,_->vm.deleteField(field)}.setNegativeButton(R.string.p0_huy,null).show()
+  })
+  sheet.setContentView(android.widget.ScrollView(ctx).apply{addView(list)});sheet.show()
  }
- private fun addField(field:JsonObject?=null){
+ /** A view with its own column order would put the new field last; place it beside its neighbour there too. */
+ private fun placeNewField(id:String,neighbour:JsonObject?,right:Boolean){
+  if(neighbour==null||id.isBlank()||(vm.queryConfig.getAsJsonArray("fieldOrder")?.size()?:0)==0)return
+  val order=vm.displayedFields().map{it.text("id")}.filter{it!=id}.toMutableList()
+  val at=order.indexOf(neighbour.text("id")).takeIf{it>=0}?:return
+  order.add(if(right)at+1 else at,id);vm.setFieldOrder(order);schema="";render()
+ }
+ /** Default name like Airtable's "Field 6": the first "Cột N" not already used. */
+ private fun nextFieldName():String{
+  val names=vm.data.value?.objects("fields").orEmpty().map{it.text("name").lowercase()}.toSet()
+  return generateSequence(names.size+1){it+1}.map{getString(R.string.field_default_name,it)}.first{it.lowercase() !in names}
+ }
+ private fun addField(field:JsonObject?=null,insertNextTo:JsonObject?=null,right:Boolean=false){
   val b=DialogInputBinding.inflate(layoutInflater);b.valueBox.hint=getString(R.string.p0_ten_cot)
   val types=vm.fieldTypes()
   b.choice.adapter=ArrayAdapter(requireContext(),android.R.layout.simple_spinner_dropdown_item,types.map{fieldTypeLabel(requireContext(),it)})
@@ -336,10 +378,13 @@ class DataTableFragment:Fragment(){
   if(field!=null){
    b.value.setText(field.text("name"));types.indexOf(field.text("type")).takeIf{it>=0}?.let{b.choice.setSelection(it)}
    b.extra.setText(field.getAsJsonArray("options")?.joinToString(", "){it.asString}.orEmpty())
-  }
-  val d=MaterialAlertDialogBuilder(requireContext()).setTitle(if(field==null)getString(R.string.p0_them_cot_tuy_chinh) else getString(R.string.field_edit)).setView(b.root).setPositiveButton(getString(if(field==null)R.string.p0_them else R.string.p0_luu),null).setNegativeButton(getString(R.string.p0_huy),null).create();dialog=d
+  }else{b.value.setText(nextFieldName());b.value.selectAll()}
+  val title=when{field!=null->getString(R.string.field_edit);insertNextTo!=null->getString(if(right)R.string.field_insert_right else R.string.field_insert_left);else->getString(R.string.p0_them_cot_tuy_chinh)}
+  // Insert left/right: new field takes the neighbour's slot (left) or the one after it (right).
+  val position=insertNextTo?.get("position")?.takeUnless{it.isJsonNull}?.asInt?.let{if(right)it+1 else it}
+  val d=MaterialAlertDialogBuilder(requireContext()).setTitle(title).setView(b.root).setPositiveButton(getString(if(field==null)R.string.p0_them else R.string.p0_luu),null).setNegativeButton(getString(R.string.p0_huy),null).create();dialog=d
   d.setOnShowListener{d.getButton(-1).setOnClickListener{
-   val error=if(field==null)vm.createField(b.value.text.toString(),types[b.choice.selectedItemPosition],b.extra.text.toString()){if(isAdded)d.dismiss()}
+   val error=if(field==null)vm.createField(b.value.text.toString(),types[b.choice.selectedItemPosition],b.extra.text.toString(),position,created={id->placeNewField(id,insertNextTo,right)}){if(isAdded)d.dismiss()}
     else vm.updateField(field,b.value.text.toString(),types[b.choice.selectedItemPosition],b.extra.text.toString()){if(isAdded)d.dismiss()}
    b.valueBox.error=null;b.extraBox.error=null
    if(error!=null){if(error==R.string.p0_nhap_ten_tu_1_den_100_ky_tu)b.valueBox.error=getString(error) else b.extraBox.error=getString(error)}

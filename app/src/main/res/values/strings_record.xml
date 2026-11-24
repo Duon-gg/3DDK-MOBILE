@@ -43,6 +43,12 @@
     <string name="layout_choose">Kiểu hiển thị</string>
     <string name="kanban_need_select">Kanban cần một cột Lựa chọn</string>
     <string name="kanban_stack_by">Xếp cột Kanban theo</string>
+    <string name="kanban_move">Chuyển sang cột khác</string>
+    <string name="kanban_move_to">Chuyển "%1$s" sang</string>
+    <string name="field_insert_left">Chèn cột bên trái</string>
+    <string name="field_insert_right">Chèn cột bên phải</string>
+    <string name="field_hide">Ẩn cột</string>
+    <string name="field_default_name">Cột %1$d</string>
     <string name="column_order">Thứ tự cột</string>
     <string name="column_order_hint">Kéo ≡ để đổi thứ tự</string>
     <string name="comments_title">Bình luận</string>
