@@ -55,6 +55,42 @@ class RecordEditorFragment:Fragment(){
   watch(vm.conflict){b.reconcile.isVisible=it;if(!it&&vm.ready.value)render();updateEnabled()};watch(vm.finished){if(it)findNavController().popBackStack()};watch(vm.duplicated){if(it!=null){vm.duplicated.value=null;switchRow(it)}}
   watch(vm.history){if(historyRequested&&it!=null){historyRequested=false;showHistory(it)}}
   vm.open(requireArguments().getString("path")!!,recordId)
+  watch(vm.ready){if(it&&vm.canComment&&vm.comments.value==null)vm.loadComments()}
+  watch(vm.comments){renderComments(it)}
+  b.commentMention.setOnClickListener{
+   val members=vm.table.value?.objects("members").orEmpty().filter{m->m.text("displayName").isNotBlank()}
+   dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.comments_mention).setItems(members.map{it.text("displayName")}.toTypedArray()){_,i->
+    mentioned+=members[i].text("uid");b.commentInput.text?.append("@"+members[i].text("displayName")+" ")
+   }.setNegativeButton(R.string.p0_huy,null).show()
+  }
+  b.commentSend.setOnClickListener{
+   val text=b.commentInput.text.toString()
+   // Keep only mentions whose @name is still in the text.
+   val members=vm.table.value?.objects("members").orEmpty()
+   val keep=mentioned.filter{uid->members.firstOrNull{it.text("uid")==uid}?.text("displayName")?.let{"@$it" in text}==true}
+   vm.addComment(text,keep){if(binding===b){b.commentInput.setText("");mentioned.clear()}}
+  }
+ }
+ private val mentioned=mutableListOf<String>()
+ private fun renderComments(items:List<JsonObject>?){
+  val b=binding?:return;val show=items!=null
+  b.commentsTitle.isVisible=show;b.commentBar.isVisible=show;b.comments.removeAllViews()
+  if(items==null)return
+  if(items.isEmpty())b.comments.addView(TextView(requireContext()).apply{setText(R.string.comments_empty);setPadding(0,8,0,8)})
+  val members=vm.table.value?.objects("members").orEmpty()
+  items.forEach{c->
+   val time=runCatching{java.time.OffsetDateTime.parse(c.text("createdAt")).atZoneSameInstant(java.time.ZoneId.systemDefault()).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))}.getOrDefault("")
+   val head=c.text("displayName").ifBlank{c.text("uid")}+"  "+time
+   val text=android.text.SpannableStringBuilder(head+"\n"+c.text("body"))
+   text.setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD),0,c.text("displayName").ifBlank{c.text("uid")}.length,0)
+   // Highlight @mentions the way Airtable does.
+   c.getAsJsonArray("mentions")?.forEach{uid->
+    val name="@"+members.firstOrNull{it.text("uid")==uid.asString}?.text("displayName").orEmpty()
+    var at=text.indexOf(name,head.length)
+    while(name.length>1&&at>=0){text.setSpan(android.text.style.ForegroundColorSpan(requireContext().getColor(R.color.mobile_primary)),at,at+name.length,0);at=text.indexOf(name,at+name.length)}
+   }
+   b.comments.addView(TextView(requireContext()).apply{this.text=text;textSize=15f;setPadding(0,12,0,12);setTextIsSelectable(true)})
+  }
  }
  private fun switchRow(id:String?){
   if(id==null)return
@@ -96,7 +132,7 @@ class RecordEditorFragment:Fragment(){
  private fun render(){
   val b=binding?:return;val table=vm.table.value?:return;rendered=true;schema=table.objects("fields").toString()+table.objects("members").toString();b.fields.removeAllViews()
   table.objects("fields").forEachIndexed{index,field->
-   val f=ItemFieldEditorBinding.inflate(layoutInflater,b.fields,false);val id=field.text("id");val value=vm.raw.get(id)?.takeUnless{it.isJsonNull}?.asString.orEmpty()
+   val f=ItemFieldEditorBinding.inflate(layoutInflater,b.fields,false);val id=field.text("id");val value=if(field.text("type")=="MULTI_SELECT")com.threeddk.tasks.viewmodel.multiValues(vm.raw.get(id)).joinToString("\n") else vm.raw.get(id)?.takeUnless{it.isJsonNull}?.asString.orEmpty()
    val type=field.text("type")
    val isTitle=index==0&&type=="TEXT"
    f.label.text=field.text("name")
@@ -114,7 +150,8 @@ class RecordEditorFragment:Fragment(){
     val control=if(type=="SELECT")f.options else f.input
     control.id=View.generateViewId()
     f.label.labelFor=control.id
-    if(type=="TEXT")f.input.maxLines=Int.MAX_VALUE
+    if(type=="TEXT"||type=="LONG_TEXT")f.input.maxLines=Int.MAX_VALUE
+    if(type=="LONG_TEXT")f.input.minLines=3
    }
    f.input.setText(value);f.input.isEnabled=vm.writable
    when(type){
@@ -138,7 +175,31 @@ class RecordEditorFragment:Fragment(){
       else {val date=runCatching{LocalDate.parse(vm.raw.get(id)?.asString)}.getOrDefault(LocalDate.now());dateDialog=DatePickerDialog(requireContext(),{_,year,month,day->vm.change(id,LocalDate.of(year,month+1,day).toString());f.input.setText(cellLabel(requireContext(),field,vm.raw.get(id),emptyList()))},date.year,date.monthValue-1,date.dayOfMonth).also{it.show()}}
      }
     }
-    else->{if(field.text("type")=="NUMBER")f.input.inputType=InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL or InputType.TYPE_NUMBER_FLAG_SIGNED;f.input.doAfterTextChanged{vm.change(id,it.toString())}}
+    "MULTI_SELECT"->{
+     f.input.isFocusable=false;f.input.isClickable=true;f.input.minHeight=(48*resources.displayMetrics.density).toInt()
+     f.input.setText(value.replace("\n",", "))
+     f.input.setOnClickListener{
+      if(!vm.writable||vm.busy.value)return@setOnClickListener
+      val options=field.getAsJsonArray("options").map{it.asString};val current=com.threeddk.tasks.viewmodel.multiValues(vm.raw.get(id))
+      val checked=BooleanArray(options.size){options[it] in current}
+      dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(field.text("name")).setMultiChoiceItems(options.toTypedArray(),checked){_,i,on->checked[i]=on}
+       .setPositiveButton(R.string.p0_ap_dung){_,_->val picked=options.filterIndexed{i,_->checked[i]};vm.change(id,picked.joinToString("\n"));f.input.setText(picked.joinToString(", "))}
+       .setNegativeButton(R.string.p0_huy,null).show()
+     }
+    }
+    "URL","EMAIL","PHONE"->{
+     f.input.inputType=when(type){"URL"->InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI;"EMAIL"->InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS;else->InputType.TYPE_CLASS_PHONE}
+     f.input.doAfterTextChanged{vm.change(id,it.toString())}
+     // Like Airtable, the value is one tap away from the browser, mail app or dialer.
+     f.inputBox.endIconMode=TextInputLayout.END_ICON_CUSTOM;f.inputBox.setEndIconDrawable(if(type=="URL")R.drawable.ic_field_url else if(type=="EMAIL")R.drawable.ic_field_email else R.drawable.ic_field_phone)
+     f.inputBox.endIconContentDescription=getString(R.string.field_open_value,field.text("name"))
+     f.inputBox.setEndIconOnClickListener{
+      val text=f.input.text.toString().trim();if(text.isEmpty())return@setEndIconOnClickListener
+      val uri=android.net.Uri.parse(when(type){"URL"->text;"EMAIL"->"mailto:$text";else->"tel:$text"})
+      runCatching{startActivity(android.content.Intent(if(type=="PHONE")android.content.Intent.ACTION_DIAL else android.content.Intent.ACTION_VIEW,uri))}
+     }
+    }
+    else->{if(type=="LONG_TEXT")f.input.inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES;if(field.text("type")=="NUMBER")f.input.inputType=InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL or InputType.TYPE_NUMBER_FLAG_SIGNED;f.input.doAfterTextChanged{vm.change(id,it.toString())}}
    };b.fields.addView(f.root)
   }
   val orphan=vm.orphanValues()

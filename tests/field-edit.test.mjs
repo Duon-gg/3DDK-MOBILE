@@ -62,3 +62,28 @@ test('delete removes the field from records and views',async()=>{
  assert.deepEqual([view.field_ids,view.sort],[[],[]]);
  m=await f.meta();assert.equal(m.fields.some(x=>x.id===note.id),false);
 });
+
+test('rich field types validate their cells',async()=>{
+ const f=await setup();let m=await f.meta();
+ const mk=async(name,type,options=[])=>{const r=await api(f.owner,'POST',`${f.path}/fields`,request({name,type,options,expectedSchemaVersion:m.schemaVersion}));m=await f.meta();return r;};
+ const tags=await mk('Tags','MULTI_SELECT',['a','b']),url=await mk('Web','URL'),mail=await mk('Mail','EMAIL'),tel=await mk('Tel','PHONE'),long=await mk('Note','LONG_TEXT');
+ assert.equal(m.fields.find(x=>x.id===tags.id).type,'MULTI_SELECT');
+ const add=cells=>api(f.owner,'POST',`${f.path}/records`,request({expectedVersion:1,expectedSchemaVersion:m.schemaVersion,cells}));
+ await add({[tags.id]:['a','b'],[url.id]:'https://x.vn',[mail.id]:'a@b.vn',[tel.id]:'+84 90 123',[long.id]:'x'.repeat(8000)});
+ for(const bad of [{[tags.id]:['c']},{[tags.id]:'a'},{[url.id]:'x.vn'},{[mail.id]:'nope'},{[tel.id]:'abc'}])await assert.rejects(add(bad),/VALIDATION/);
+ await assert.rejects(api(f.owner,'PATCH',`${f.path}/fields/${tags.id}`,{options:['a']}),/VALIDATION/);
+ const q=await api(f.owner,'POST',`${f.path}/records/query`,{filter:{op:'and',conditions:[{fieldId:tags.id,operator:'contains',value:'b'}]}});
+ assert.equal((q.records??q.items).length,1);
+});
+
+test('members comment on records with mentions',async()=>{
+ const f=await setup();const m=await f.meta();
+ const rec=await api(f.owner,'POST',`${f.path}/records`,request({expectedVersion:1,expectedSchemaVersion:m.schemaVersion,cells:{}}));
+ const url=`${f.path}/records/${rec.id}/comments`;
+ assert.equal((await api(f.owner,'GET','/capabilities')).features.comments,true);
+ const out=await api(f.guest,'POST',url,{body:' hi @owner ',mentions:[f.owner]});
+ assert.equal(out.comments.length,1);assert.equal(out.comments[0].body,'hi @owner');
+ await assert.rejects(api(f.guest,'POST',url,{body:'x',mentions:['stranger']}),/VALIDATION/);
+ await assert.rejects(api(crypto.randomUUID(),'GET',url),/FORBIDDEN/);
+ assert.equal((await api(f.owner,'GET',url)).comments.length,1);
+});

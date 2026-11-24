@@ -271,6 +271,8 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
   val next=sorts().filter{it.text("fieldId")!=fieldId}+JsonObject().apply{addProperty("fieldId",fieldId);addProperty("direction",if(descending)"desc" else "asc")}
   if(next.size<=3)queryTable(sort=Gson().toJsonTree(next).asJsonArray)
  }
+ /** Column order is part of the view config (fieldOrder), so "Lưu thay đổi chế độ xem" persists it like Airtable. */
+ fun setFieldOrder(ids:List<String>){queryConfig=queryConfig.deepCopy().apply{add("fieldOrder",Gson().toJsonTree(ids))}}
  fun selectColumns(fields:List<JsonObject>,checked:BooleanArray){
   if(checked.none{it})return
   queryTable(fieldIds=Gson().toJsonTree(fields.filterIndexed{i,_->checked.getOrElse(i){false}}.map{it.text("id")}).asJsonArray)
@@ -280,11 +282,11 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
   val payload=JsonObject().apply{listOf("filter","sort","fieldIds","fieldOrder").forEach{key->queryConfig.get(key)?.let{add(key,it.deepCopy())}};addProperty("expectedVersion",view.get("version")?.asInt?:1)}
   mutate("PATCH","$path/views/${view.text("id")}",payload){selectView(view.text("id"))}
  }
- fun fieldTypes()=listOf("TEXT","NUMBER","DATE","CHECKBOX","SELECT")+if(supports("userFields"))listOf("USER") else emptyList()
+ fun fieldTypes()=listOf("TEXT","NUMBER","DATE","CHECKBOX","SELECT")+(if(supports("userFields"))listOf("USER") else emptyList())+if(supports("richFields"))listOf("LONG_TEXT","MULTI_SELECT","URL","EMAIL","PHONE") else emptyList()
  fun createField(name:String,type:String,rawOptions:String,done:()->Unit):Int?{
   if(name.trim().length !in 1..100)return R.string.p0_nhap_ten_tu_1_den_100_ky_tu
   val options=rawOptions.split(',').map{it.trim()}.filter{it.isNotEmpty()}.distinct()
-  if(type=="SELECT"&&(options.isEmpty()||options.size>30||options.any{it.length>100}))return R.string.p0_nhap_tu_1_den_30_lua_chon_moi
+  if(type in listOf("SELECT","MULTI_SELECT")&&(options.isEmpty()||options.size>30||options.any{it.length>100}))return R.string.p0_nhap_tu_1_den_30_lua_chon_moi
   if(type !in fieldTypes())return R.string.p0_nhap_ten_tu_1_den_100_ky_tu
   mutate("POST","$path/fields",JsonObject().apply{addProperty("name",name.trim());addProperty("type",type);add("options",Gson().toJsonTree(options));addProperty("expectedSchemaVersion",data.value?.get("schemaVersion")?.asInt?:1)}){done()}
   return null
@@ -294,7 +296,7 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
  fun updateField(field:JsonObject,name:String,type:String,rawOptions:String,done:()->Unit):Int?{
   if(name.trim().length !in 1..100)return R.string.p0_nhap_ten_tu_1_den_100_ky_tu
   val options=rawOptions.split(',').map{it.trim()}.filter{it.isNotEmpty()}.distinct()
-  if(type=="SELECT"&&(options.isEmpty()||options.size>30||options.any{it.length>100}))return R.string.p0_nhap_tu_1_den_30_lua_chon_moi
+  if(type in listOf("SELECT","MULTI_SELECT")&&(options.isEmpty()||options.size>30||options.any{it.length>100}))return R.string.p0_nhap_tu_1_den_30_lua_chon_moi
   mutate("PATCH","$path/fields/${field.text("id")}",JsonObject().apply{addProperty("name",name.trim());addProperty("type",type);add("options",Gson().toJsonTree(options));addProperty("expectedSchemaVersion",data.value?.get("schemaVersion")?.asInt?:1)}){done()}
   return null
  }
