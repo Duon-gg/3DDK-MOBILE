@@ -46,6 +46,9 @@ fun csvCell(field:JsonObject,raw:String):com.google.gson.JsonElement?{
   "NUMBER"->v.replace(',','.').toDoubleOrNull()?.let{com.google.gson.JsonPrimitive(it)}
   "DATE"->v.takeIf{Regex("""\d{4}-\d{2}-\d{2}""").matches(it)}?.let{com.google.gson.JsonPrimitive(it)}
   "SELECT"->v.takeIf{field.getAsJsonArray("options")?.any{o->o.asString==v}==true}?.let{com.google.gson.JsonPrimitive(it)}
+  "LONG_TEXT"->com.google.gson.JsonPrimitive(v.take(20000))
+  "URL","EMAIL","PHONE"->com.google.gson.JsonPrimitive(v)
+  "MULTI_SELECT"->{val opts=field.getAsJsonArray("options")?.map{it.asString}.orEmpty();com.google.gson.JsonArray().apply{v.split(',').map{it.trim()}.filter{it in opts}.distinct().forEach(::add)}.takeIf{it.size()>0}}
   else->null
  }
 }

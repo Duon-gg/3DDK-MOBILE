@@ -15,9 +15,17 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.time.LocalDate
 
+/** MULTI_SELECT cells are JSON arrays on the server and in edits; null/blank means none. */
+fun multiValues(value:JsonElement?):List<String> = when{value==null||value.isJsonNull->emptyList();value.isJsonArray->value.asJsonArray.map{it.asString};else->value.asString.split('\n').filter{it.isNotBlank()}}
+
 fun typedCells(fields:List<JsonObject>,raw:JsonObject,members:List<JsonObject> = emptyList(),baseline:JsonObject=JsonObject()):JsonObject=JsonObject().apply{
  fields.forEach{field->
   val id=field.text("id");val value=raw.get(id)
+  if(field.text("type")=="MULTI_SELECT"){
+   val picked=multiValues(value)
+   require(picked.size<=30&&picked.all{p->field.getAsJsonArray("options").any{it.asString==p}}){"Cột ${field.text("name")}: giá trị chưa đúng kiểu dữ liệu."}
+   add(id,if(picked.isEmpty())JsonNull.INSTANCE else JsonArray().apply{picked.forEach(::add)});return@forEach
+  }
   if(field.text("systemKey")=="title")require(value!=null&&!value.isJsonNull&&value.asString.isNotBlank()){"Cột ${field.text("name")}: cần nhập tên công việc."}
   if(value==null||value.isJsonNull||value.asString.isBlank()){add(id,JsonNull.INSTANCE);return@forEach}
   val text=value.asString
@@ -29,6 +37,10 @@ fun typedCells(fields:List<JsonObject>,raw:JsonObject,members:List<JsonObject> =
     "SELECT"->{require(field.getAsJsonArray("options").any{it.asString==text});addProperty(id,text)}
     "USER"->{require(baseline.get(id)==value||members.any{it.text("uid")==text&&it.get("active")?.asBoolean!=false});addProperty(id,text)}
     "TEXT"->{require(text.length<=5000);addProperty(id,text)}
+    "LONG_TEXT"->{require(text.length<=20000);addProperty(id,text)}
+    "URL"->{require(text.length<=2000&&Regex("""(?i)https?://\S+""").matches(text));addProperty(id,text)}
+    "EMAIL"->{require(text.length<=254&&Regex("""[^@\s]+@[^@\s]+\.[^@\s]+""").matches(text));addProperty(id,text)}
+    "PHONE"->{require(Regex("""[+0-9 ().-]{3,40}""").matches(text));addProperty(id,text)}
     else->throw IllegalArgumentException("Unsupported field type")
    }
   }catch(e:Exception){throw IllegalArgumentException("Cột ${field.text("name")}: giá trị chưa đúng kiểu dữ liệu.")}
@@ -123,7 +135,7 @@ class RecordViewModel(app:Application,private val savedState:SavedStateHandle):A
  }
  fun change(id:String,value:String){
   if(busy.value||!writable||creationPending.value)return
-  dirty=true;raw.addProperty(id,value);requestId=java.util.UUID.randomUUID().toString()
+  dirty=true;raw.add(id,if(table.value?.objects("fields")?.any{it.text("id")==id&&it.text("type")=="MULTI_SELECT"}==true)JsonArray().apply{multiValues(JsonPrimitive(value)).forEach(::add)} else JsonPrimitive(value));requestId=java.util.UUID.randomUUID().toString()
   val draft=makeDraft()
   viewModelScope.launch{try{draftMutex.withLock{repo.save(draft)};status.value="Đã lưu nháp trên máy • Chưa gửi"}catch(e:CancellationException){throw e}catch(e:Exception){status.value="Chưa lưu được nháp. Hãy giữ màn hình và thử lại."}}
  }
@@ -242,6 +254,20 @@ class RecordViewModel(app:Application,private val savedState:SavedStateHandle):A
  }
  val duplicated=MutableStateFlow<String?>(null)
  /** Copies the saved cells (not unsaved edits) into a new record, like Airtable's "Duplicate record". */
+ /** Record comments (Airtable-style); null until loaded, hidden for unsaved rows. */
+ val comments=MutableStateFlow<List<JsonObject>?>(null)
+ val canComment get()=recordId!="new"&&ready.value
+ fun loadComments(){
+  if(recordId=="new")return
+  viewModelScope.launch{runCatching{repo.mutate("GET","$path/records/$recordId/comments",JsonObject())}.onSuccess{comments.value=it.objects("comments")}}
+ }
+ fun addComment(body:String,mentions:List<String>,done:()->Unit){
+  if(body.isBlank()||body.length>2000||recordId=="new")return
+  viewModelScope.launch{
+   try{comments.value=repo.mutate("POST","$path/records/$recordId/comments",JsonObject().apply{addProperty("body",body.trim());add("mentions",Gson().toJsonTree(mentions.distinct()))}).objects("comments");done()}
+   catch(e:CancellationException){throw e}catch(e:Exception){status.value=friendlyError(e)}
+  }
+ }
  fun duplicate(){
   if(busy.value||!canArchive||conflict.value)return
   viewModelScope.launch{busy.value=true
