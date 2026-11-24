@@ -47,8 +47,14 @@ import com.threeddk.tasks.ui.cellLabel
   }
   if(!header)setBackgroundResource(R.drawable.grid_cell_background)
   text=value;textSize=if(header)12f else 13f;setPadding(horizontalInset,verticalInset,horizontalInset,verticalInset)
-  minHeight=((if(header)32 else 40)*density).toInt();gravity=Gravity.CENTER_VERTICAL;maxLines=if(header)1 else 4
+  minHeight=((if(header)32 else 40)*density).toInt();gravity=Gravity.CENTER_VERTICAL;maxLines=1
   ellipsize=android.text.TextUtils.TruncateAt.END
   layoutParams=LinearLayout.LayoutParams((columnWidth*density).toInt(),if(header) ViewGroup.LayoutParams.WRAP_CONTENT else ViewGroup.LayoutParams.MATCH_PARENT)
-  if(header)setTextColor(com.google.android.material.color.MaterialColors.getColor(this,com.google.android.material.R.attr.colorOnSurfaceVariant))
+  if(header){
+   val ink=com.google.android.material.color.MaterialColors.getColor(this,com.google.android.material.R.attr.colorOnSurfaceVariant)
+   setTextColor(ink)
+   val icon=when(type){"NUMBER"->R.drawable.ic_field_number;"DATE"->R.drawable.ic_field_date;"CHECKBOX"->R.drawable.ic_field_checkbox;"SELECT"->R.drawable.ic_field_select;"USER"->R.drawable.ic_field_user;else->R.drawable.ic_field_text}
+   setCompoundDrawablesRelativeWithIntrinsicBounds(icon,0,0,0);compoundDrawablePadding=(6*density).toInt()
+   compoundDrawableTintList=android.content.res.ColorStateList.valueOf(ink)
+  }
  }

@@ -51,7 +51,7 @@
  <string name="p0_chua_co_du_lieu_tren_thiet_bi_ket">Chưa có dữ liệu trên thiết bị. Kết nối mạng và bấm Làm mới.</string>
  <string name="p0_khong_co_dong_phu_hop_thu_doi_tim">Không có dòng phù hợp. Thử đổi tìm kiếm hoặc xóa bộ lọc.</string>
  <string name="p0_chua_co_dong_trong_du_lieu_da_tai">Chưa có dòng trong dữ liệu đã tải. Bấm Thêm dòng để bắt đầu.</string>
- <string name="p0_tat_ca_chua_luu_che_do_xem">Tất cả • Chưa lưu chế độ xem</string>
+ <string name="p0_tat_ca_chua_luu_che_do_xem">Dạng lưới</string>
  <string name="p0_luu_thanh_che_do_xem_moi">Lưu thành chế độ xem mới</string>
  <string name="p0_luu_thay_doi_che_do_xem">Lưu thay đổi chế độ xem</string>
  <string name="p0_them_cot">Thêm cột</string>

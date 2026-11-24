@@ -52,6 +52,7 @@ class DataTableFragment:Fragment(){
  override fun onCreateView(i:LayoutInflater,c:ViewGroup?,s:Bundle?)=FragmentDataTableBinding.inflate(i,c,false).also{binding=it}.root
  override fun onViewCreated(v:View,s:Bundle?){
   val b=binding!!
+  if(basePath.isNotBlank())(requireActivity() as com.threeddk.tasks.MainActivity).paintChrome(com.threeddk.tasks.adapter.RowAdapter.tileFor(basePath))
   if(basePath.isNotBlank())vm.baseTitle(basePath,baseName){name->
    if(name.isNotBlank()&&binding===b&&findNavController().currentDestination?.id==R.id.dataTable){
     (requireActivity() as androidx.appcompat.app.AppCompatActivity).supportActionBar?.title=name
@@ -77,7 +78,7 @@ class DataTableFragment:Fragment(){
    render();requireActivity().invalidateOptionsMenu()
   };watch(vm.accessDenied){render();requireActivity().invalidateOptionsMenu()};watch(vm.drafts){requireActivity().invalidateOptionsMenu()};watch(vm.selectedViewId){b.search.setText(vm.queryConfig.text("search"));render()};watch(vm.hasMore){b.more.isVisible=it}
   watch(vm.busy){val usable=vm.data.value!=null&&!vm.accessDenied.value;b.refresh.isEnabled=!it;b.add.isEnabled=!it&&usable;b.more.isEnabled=!it&&usable;b.viewChoice.isEnabled=!it&&usable;b.filter.isEnabled=!it&&usable;b.sort.isEnabled=!it&&usable;b.columns.isEnabled=!it&&usable;dialog?.getButton(-1)?.isEnabled=!it;b.status.text=if(it)getString(R.string.p0_dang_tai_giu_du_lieu_da_hien_thi) else vm.error.value?:vm.note.value}
-  watch(vm.note){b.status.text=it};watch(vm.error){if(it!=null){b.status.text=it;dialog?.setMessage(it)}};vm.openTable(path,arguments?.getString("initialViewId"))
+  watch(vm.note){b.status.text=it};watch(vm.error){b.status.isVisible=it!=null;if(it!=null){b.status.text=it;dialog?.setMessage(it)}};vm.openTable(path,arguments?.getString("initialViewId"))
  }
  override fun onSaveInstanceState(outState:Bundle){outState.putBoolean("queryExpanded",binding?.queryActions?.isVisible==true);outState.putBoolean("showCards",showCards);outState.putBoolean("searchExpanded",searchExpanded);super.onSaveInstanceState(outState)}
  private fun updatePresentation(){val b=binding?:return;b.cards.isVisible=showCards&&!vm.accessDenied.value;b.gridContainer.isVisible=!showCards&&!vm.accessDenied.value}
@@ -193,6 +194,7 @@ class DataTableFragment:Fragment(){
    menu.add(0,R.id.toggle_table_star,1,getString(if(starred)R.string.home_unstar else R.string.home_star))
   }
   menu.add(0,R.id.display_mode,0,getString(if(showCards)R.string.mobile_show_grid else R.string.mobile_show_cards)).setIcon(if(showCards)R.drawable.ic_table else R.drawable.ic_cards).setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+  if(basePath.isNotBlank())menu.findItem(R.id.display_mode).icon?.mutate()?.setTint(com.threeddk.tasks.adapter.RowAdapter.tileFor(basePath).second)
   if(vm.supports("savedViews")){menu.add(0,11,0,getString(R.string.p0_luu_thanh_che_do_xem_moi));if(editableView()!=null)menu.add(0,12,1,getString(R.string.p0_luu_thay_doi_che_do_xem))}
   if(vm.data.value?.text("role")=="OWNER"){menu.add(0,10,2,getString(R.string.p0_them_cot));menu.add(0,14,2,getString(R.string.import_csv))}
   if(vm.drafts.value.isNotEmpty())menu.add(0,13,3,getString(R.string.p0_draft_count,vm.drafts.value.size))
@@ -292,7 +294,7 @@ class DataTableFragment:Fragment(){
 
   }};d.show()
  }
- override fun onDestroyView(){dateDialog?.dismiss();dateDialog=null;dialog?.dismiss();dialog=null;binding?.grid?.adapter=null;binding?.cards?.adapter=null;binding=null;schema="";super.onDestroyView()}
+ override fun onDestroyView(){(requireActivity() as com.threeddk.tasks.MainActivity).paintChrome(null);dateDialog?.dismiss();dateDialog=null;dialog?.dismiss();dialog=null;binding?.grid?.adapter=null;binding?.cards?.adapter=null;binding=null;schema="";super.onDestroyView()}
 }
 
 internal fun operatorLabel(context:android.content.Context,operator:String):String=when(operator){
