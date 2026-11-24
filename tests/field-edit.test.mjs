@@ -11,7 +11,7 @@ async function api(uid,method,path,body={}){
 }
 before(async()=>{
  db=new PGlite();await db.exec('create role anon;create role authenticated;create role service_role;');
- for(const name of ['202610040001_workspaces.sql','202610170001_p0_workspaces.sql','202611130001_base_actions.sql','202611130002_workspace_actions.sql','202611140001_workspace_trash.sql','202611240001_field_edit.sql'])
+ for(const name of ['202610040001_workspaces.sql','202610170001_p0_workspaces.sql','202611130001_base_actions.sql','202611130002_workspace_actions.sql','202611140001_workspace_trash.sql','202611240001_field_edit.sql','202611250001_field_insert.sql'])
   await db.exec(await readFile(new URL(`../supabase/migrations/${name}`,import.meta.url),'utf8'));
 });
 after(async()=>{await db?.close();});
@@ -91,4 +91,16 @@ test('members comment on records with mentions',async()=>{
 test('edge function role can still call the wrapped API',async()=>{
  const r=(await db.query("select has_function_privilege('service_role','public.workspace_api(text,text,text,text,text,jsonb)','execute') ok,has_function_privilege('anon','public.workspace_api(text,text,text,text,text,jsonb)','execute') anon")).rows[0];
  assert.deepEqual([r.ok,r.anon],[true,false]);
+});
+
+test('insert left/right places the new field at the requested position',async()=>{
+ const f=await setup();let m=await f.meta();
+ assert.equal((await api(f.owner,'GET','/capabilities')).features.fieldInsert,true);
+ const a=await api(f.owner,'POST',`${f.path}/fields`,request({name:'A',type:'TEXT',options:[],expectedSchemaVersion:m.schemaVersion}));m=await f.meta();
+ const b=await api(f.owner,'POST',`${f.path}/fields`,request({name:'B',type:'URL',options:[],expectedSchemaVersion:m.schemaVersion}));m=await f.meta();
+ const pa=m.fields.find(x=>x.id===a.id).position;
+ const left=await api(f.owner,'POST',`${f.path}/fields`,request({name:'L',type:'EMAIL',options:[],position:pa,expectedSchemaVersion:m.schemaVersion}));m=await f.meta();
+ assert.equal(left.type,'EMAIL');
+ assert.deepEqual(m.fields.map(x=>x.name).slice(-3),['L','A','B']);
+ await assert.rejects(api(f.owner,'POST',`${f.path}/fields`,request({name:'X',type:'TEXT',options:[],position:-1,expectedSchemaVersion:m.schemaVersion})),/VALIDATION/);
 });
