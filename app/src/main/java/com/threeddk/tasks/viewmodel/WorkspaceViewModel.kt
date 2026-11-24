@@ -163,7 +163,8 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
    queryConfig=queryConfig.deepCopy().apply{addProperty("expectedSchemaVersion",meta["schemaVersion"].asInt)}
    observe()
   }
-  repo.query(path,queryConfig,append)
+  // Schema changed elsewhere (another device or member): fetch fresh metadata once instead of staying stuck.
+  try{repo.query(path,queryConfig,append)}catch(e:ApiException){if(e.code!="SCHEMA_CHANGED"||append)throw e;reload()}
  }
  fun refresh(){if(busy.value)return;run{reload();if(!viewResetNotice)note.value=if(tableMode)"Đã cập nhật • Chỉ các trang đã tải có sẵn khi mất mạng" else "Đã cập nhật • Có thể xem khi mất mạng"}}
  private fun run(block:suspend()->Unit){val serial=++requestSerial;requestJob=viewModelScope.launch{
