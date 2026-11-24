@@ -30,9 +30,9 @@ fun columnSummary(records:List<JsonObject>,field:JsonObject):ColumnSummary{
  }
 }
 
-/** Kanban stacks: every SELECT option is a column (even empty, like Airtable), plus an "empty" column for rows with no value. */
+/** Kanban stacks: every SELECT option is a column (even empty, like Airtable); the no-value column only shows when it has rows. */
 fun kanbanColumns(records:List<JsonObject>,field:JsonObject):List<Pair<String?,List<JsonObject>>>{
  val id=field.text("id");val options=field.getAsJsonArray("options")?.map{it.asString}.orEmpty()
  val byValue=records.groupBy{cell(it,id)?.asString}
- return listOf<String?>(null).plus(options).plus(byValue.keys.filterNotNull().filter{it !in options}).map{it to byValue[it].orEmpty()}
+ return listOf<String?>(null).plus(options).plus(byValue.keys.filterNotNull().filter{it !in options}).map{it to byValue[it].orEmpty()}.filter{it.first!=null||it.second.isNotEmpty()}
 }

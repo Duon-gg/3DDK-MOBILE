@@ -198,3 +198,4 @@ revoke all on function public.workspace_api(text,text,text,text,text,jsonb) from
 revoke all on function public.workspace_api_core(text,text,text,text,text,jsonb) from public,anon,authenticated;
 revoke all on function public.ws_valid_choices(jsonb) from public,anon,authenticated;
 revoke all on table public.ws_comments from public,anon,authenticated;
+grant execute on function public.workspace_api(text,text,text,text,text,jsonb) to service_role;

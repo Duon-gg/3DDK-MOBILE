@@ -85,7 +85,7 @@ class DataTableFragment:Fragment(){
   watch(vm.data){data->
    if(data!=null&&!vm.accessDenied.value&&!remembered){remembered=true;vm.rememberTable(path,basePath)}
    render();requireActivity().invalidateOptionsMenu()
-  };watch(vm.accessDenied){render();requireActivity().invalidateOptionsMenu()};watch(vm.drafts){requireActivity().invalidateOptionsMenu()};watch(vm.selectedViewId){b.search.setText(vm.queryConfig.text("search"));render()};watch(vm.hasMore){b.more.isVisible=it}
+  };watch(vm.accessDenied){render();requireActivity().invalidateOptionsMenu()};watch(vm.drafts){requireActivity().invalidateOptionsMenu()};watch(vm.selectedViewId){b.search.setText(vm.queryConfig.text("search"));render()};watch(vm.hasMore){b.more.isVisible=it};watch(vm.capabilities){render();requireActivity().invalidateOptionsMenu()}
   watch(vm.busy){val usable=vm.data.value!=null&&!vm.accessDenied.value;b.refresh.isEnabled=!it;b.add.isEnabled=!it&&usable;b.more.isEnabled=!it&&usable;b.viewChoice.isEnabled=!it&&usable;b.filter.isEnabled=!it&&usable;b.sort.isEnabled=!it&&usable;b.columns.isEnabled=!it&&usable;dialog?.getButton(-1)?.isEnabled=!it;b.status.text=if(it)getString(R.string.p0_dang_tai_giu_du_lieu_da_hien_thi) else vm.error.value?:vm.note.value}
   watch(vm.note){b.status.text=it};watch(vm.error){b.status.isVisible=it!=null;if(it!=null){b.status.text=it;dialog?.setMessage(it)}};vm.openTable(path,arguments?.getString("initialViewId"))
  }
@@ -135,7 +135,7 @@ class DataTableFragment:Fragment(){
   val gridFields=shown.filter{it!=primary}
   adapter.members=data.objects("members")
   cardAdapter.members=adapter.members
-  val signature=shown.toString()+primary.toString()+adapter.members.toString()
+  val signature=shown.toString()+primary.toString()+adapter.members.toString()+vm.canEditFields()
   if(schema!=signature||b.header.childCount==0){schema=signature;b.header.removeAllViews();gridFields.forEach{f->b.header.addView(gridCell(requireContext(),f.text("name"),f.text("type"),true).apply{if(vm.canEditFields()){isClickable=true;setBackgroundResource(android.R.drawable.list_selector_background);contentDescription=getString(R.string.field_menu_description,f.text("name"));setOnClickListener{fieldMenu(f)}}})};adapter.fields=gridFields;adapter.primary=primary;cardAdapter.fields=shown;adapter.notifyDataSetChanged();cardAdapter.notifyDataSetChanged()}
   val records=data.objects("records");cardAdapter.submitList(records);b.empty.isVisible=records.isEmpty()
   val groupField=fields.firstOrNull{it.text("id")==groupFieldId}
@@ -155,7 +155,7 @@ class DataTableFragment:Fragment(){
   b.empty.text=if(data.get("queryCached")?.asBoolean!=true)getString(R.string.p0_query_not_cached) else if(filtered)getString(R.string.p0_khong_co_dong_phu_hop_thu_doi_tim) else getString(R.string.p0_chua_co_dong_trong_du_lieu_da_tai)
   b.filter.text=getString(R.string.p0_filter_count,conditions().size);b.sort.text=getString(R.string.p0_sort_count,sortItems().size)
   val selectedView=data.objects("views").firstOrNull{it.text("id")==vm.selectedViewId.value}
-  val viewName=selectedView?.text("name")?:getString(R.string.p0_tat_ca_chua_luu_che_do_xem)
+  val viewName=selectedView?.text("name")?:getString(when(layoutMode){"CARDS"->R.string.layout_cards;"KANBAN"->R.string.layout_kanban;else->R.string.layout_grid})
   b.viewChoice.text=if(vm.supports("savedViews")) "${data.text("name")} / $viewName" else data.text("name")
   b.viewChoice.isVisible=true
  }

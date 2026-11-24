@@ -87,3 +87,8 @@ test('members comment on records with mentions',async()=>{
  await assert.rejects(api(crypto.randomUUID(),'GET',url),/FORBIDDEN/);
  assert.equal((await api(f.owner,'GET',url)).comments.length,1);
 });
+
+test('edge function role can still call the wrapped API',async()=>{
+ const r=(await db.query("select has_function_privilege('service_role','public.workspace_api(text,text,text,text,text,jsonb)','execute') ok,has_function_privilege('anon','public.workspace_api(text,text,text,text,text,jsonb)','execute') anon")).rows[0];
+ assert.deepEqual([r.ok,r.anon],[true,false]);
+});

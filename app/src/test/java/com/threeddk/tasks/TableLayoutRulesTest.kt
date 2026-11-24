@@ -25,6 +25,10 @@ class TableLayoutRulesTest {
   assertEquals("50",columnSummary(checks,field("CHECKBOX")).value)
   assertEquals("3",columnSummary(rows,field("TEXT")).value)
  }
+ @Test fun kanbanHidesEmptyNoValueColumn(){
+  val filled=rows.filter{it["id"].asString!="2"}
+  assertEquals(listOf("A","B","C"),kanbanColumns(filled,field("SELECT","""["A","B","C"]""")).map{it.first})
+ }
  @Test fun kanbanHasEveryOptionAndEmptyColumn(){
   val columns=kanbanColumns(rows,field("SELECT","""["A","B","C"]"""))
   assertEquals(listOf(null,"A","B","C"),columns.map{it.first})
