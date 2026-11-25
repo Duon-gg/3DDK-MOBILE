@@ -29,6 +29,17 @@ fun refreshedViewQuery(current:JsonObject,metadata:JsonObject,viewId:String?):Js
    addProperty("viewId",viewId);add("viewVersion",view["version"])
   }
  }
+ // A field deleted since this config was built would make every query fail with VALIDATION.
+ if(!metadata.has("fields"))return@apply
+ val live=metadata.objects("fields").map{it.text("id")}.toSet()
+ getAsJsonArray("fieldIds")?.let{ids->add("fieldIds",JsonArray().apply{ids.filter{it.asString in live}.forEach(::add)})}
+ getAsJsonArray("fieldOrder")?.let{ids->add("fieldOrder",JsonArray().apply{ids.filter{it.asString in live}.forEach(::add)})}
+ getAsJsonArray("sort")?.let{items->add("sort",JsonArray().apply{items.filter{it.isJsonObject&&it.asJsonObject.text("fieldId") in live}.forEach(::add)})}
+ get("filter")?.takeIf{it.isJsonObject}?.let{add("filter",pruneFilter(it.asJsonObject,live))}
+}
+/** Drops conditions on fields that no longer exist, keeping the and/or groups. */
+fun pruneFilter(filter:JsonObject,live:Set<String>):JsonObject=filter.deepCopy().apply{
+ getAsJsonArray("conditions")?.let{items->add("conditions",JsonArray().apply{items.filter{it.isJsonObject}.map{it.asJsonObject}.filter{c->c.has("conditions")||c.text("fieldId") in live}.forEach{c->add(if(c.has("conditions"))pruneFilter(c,live) else c)}})}
 }
 
 class WorkspaceViewModel(app:Application):AndroidViewModel(app) {

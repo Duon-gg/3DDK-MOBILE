@@ -23,4 +23,14 @@ class PickerSearchTest {
   assertEquals(7,result["expectedSchemaVersion"].asInt)
   assertFalse(current.has("viewId"))
  }
+ @org.junit.Test fun deletedFieldIsDroppedFromLocalQueryConfig(){
+  val meta=com.google.gson.JsonParser.parseString("""{"schemaVersion":3,"fields":[{"id":"a"},{"id":"c"}],"views":[]}""").asJsonObject
+  val current=com.google.gson.JsonParser.parseString("""{"fieldIds":["a","b"],"fieldOrder":["b","c"],"sort":[{"fieldId":"b"},{"fieldId":"a"}],
+   "filter":{"op":"and","conditions":[{"fieldId":"b","operator":"isEmpty"},{"op":"or","conditions":[{"fieldId":"b","operator":"isEmpty"},{"fieldId":"c","operator":"isEmpty"}]}]}}""").asJsonObject
+  val r=refreshedViewQuery(current,meta,null)
+  org.junit.Assert.assertEquals("""["a"]""",r["fieldIds"].toString())
+  org.junit.Assert.assertEquals("""["c"]""",r["fieldOrder"].toString())
+  org.junit.Assert.assertEquals("""[{"fieldId":"a"}]""",r["sort"].toString())
+  org.junit.Assert.assertEquals("""{"op":"and","conditions":[{"op":"or","conditions":[{"fieldId":"c","operator":"isEmpty"}]}]}""",r["filter"].toString())
+ }
 }

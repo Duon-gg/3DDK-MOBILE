@@ -144,6 +144,8 @@ class RecordViewModel(app:Application,private val savedState:SavedStateHandle):A
  fun beforeSwitch(done:()->Unit){
   if(!ready.value||busy.value)return
   if(!dirty){done();return}
+  // Like Airtable, moving to another record saves this one; a failed save keeps the draft and stays here.
+  if(writable&&!conflict.value&&recordId!="new"&&!recordId.startsWith("new/")){submit(done);return}
   busy.value=true
   viewModelScope.launch{
    try{draftMutex.withLock{repo.save(makeDraft())};done()}
@@ -185,7 +187,8 @@ class RecordViewModel(app:Application,private val savedState:SavedStateHandle):A
    }catch(e:CancellationException){throw e}catch(e:Exception){if(e is ApiException&&e.code in listOf("FORBIDDEN","UNAUTHORIZED","NOT_FOUND"))hideRemoteData();status.value=friendlyError(e)}finally{busy.value=false}
   }
  }
- fun submit(){
+ /** [after] runs instead of closing the editor, for previous/next. */
+ fun submit(after:(()->Unit)?=null){
   if(busy.value||!writable||!ready.value||conflict.value)return
   val isCreate=recordId=="new"
   val retryingCreate=isCreate&&pendingCreateJson.isNotBlank()
@@ -221,7 +224,7 @@ class RecordViewModel(app:Application,private val savedState:SavedStateHandle):A
      }
      draftMutex.withLock{repo.save(makeDraft());if(oldKey!=key)repo.removeDraft(oldKey,owner)}
     }else draftMutex.withLock{repo.removeDraft(key,owner)}
-    finished.value=true
+    if(after!=null)after() else finished.value=true
    }catch(e:CancellationException){throw e}catch(e:Exception){
     if(isCreate&&creationPending.value){
      if(canUnlockPendingCreation((e as? ApiException)?.code,retryingCreate,networkAttempted)){

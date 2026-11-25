@@ -86,6 +86,7 @@ class WorkspaceRepository(private val session:TaskRepository) {
    val legacy=if(meta.kind=="v2"&&!query.has("filter")&&!query.has("search")&&!query.has("viewId"))get("records") else null
    add("records",page?.get("items")?:legacy?:JsonArray())
    addProperty("hasMore",page?.get("hasMore")?.asBoolean?:false)
+   page?.get("total")?.takeIf{it.isJsonPrimitive}?.let{add("total",it)}
    addProperty("queryCached",page!=null||legacy!=null)
    add("nextCursor",page?.get("nextCursor")?:JsonNull.INSTANCE)
   }
@@ -212,6 +213,8 @@ fun mergeRecordPage(previous:JsonObject?,page:JsonObject):JsonObject=page.deepCo
   val rows=linkedMapOf<String,JsonObject>()
   (previous.objects("items")+page.objects("items")).forEach{rows[it.text("id")]=it}
   add("items",JsonArray().apply{rows.values.forEach{add(it)}})
+  // Only the first page carries the match count.
+  if(!has("total"))previous.get("total")?.let{add("total",it)}
  }
 }
 
