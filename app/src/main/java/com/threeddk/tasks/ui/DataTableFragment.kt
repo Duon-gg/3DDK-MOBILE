@@ -67,7 +67,7 @@ class DataTableFragment:Fragment(){
     (requireActivity() as androidx.appcompat.app.AppCompatActivity).supportActionBar?.title=name
    }
   }
-  adapter=GridAdapter(::edit);b.grid.layoutManager=LinearLayoutManager(requireContext());b.grid.adapter=adapter
+  adapter=GridAdapter(::tapRow);adapter.longClick={id->if(vm.canEditRecords()&&vm.supports("recordTrash"))toggleSelect(id)};b.grid.layoutManager=LinearLayoutManager(requireContext());b.grid.adapter=adapter
   cardAdapter=RecordCardAdapter(::edit);b.cards.layoutManager=LinearLayoutManager(requireContext());b.cards.adapter=cardAdapter
   kanbanAdapter=com.threeddk.tasks.adapter.KanbanAdapter(::edit,::moveCard,::chooseCardColumn);b.kanban.layoutManager=LinearLayoutManager(requireContext(),LinearLayoutManager.HORIZONTAL,false);b.kanban.adapter=kanbanAdapter
   layoutMode=prefs.getString("$path/layout","GRID")!!;groupFieldId=prefs.getString("$path/group",null);kanbanFieldId=prefs.getString("$path/kanban",null)
@@ -83,13 +83,15 @@ class DataTableFragment:Fragment(){
   watch(vm.recentBases){requireActivity().invalidateOptionsMenu()}
   b.search.setOnEditorActionListener{_,action,_->if(action==android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH){setSearchExpanded(false);true}else false}
   updatePresentation()
+  val nearEnd=object:androidx.recyclerview.widget.RecyclerView.OnScrollListener(){override fun onScrolled(rv:androidx.recyclerview.widget.RecyclerView,dx:Int,dy:Int){if(dy>0)loadMoreIfNeeded()}}
+  b.grid.addOnScrollListener(nearEnd);b.cards.addOnScrollListener(nearEnd)
   b.search.setText(vm.queryConfig.text("search"));b.search.doAfterTextChanged{vm.search(it.toString());updateSearchLabel()};b.refresh.setOnClickListener{vm.refresh()};b.add.setOnClickListener{edit("new")};b.more.setOnClickListener{vm.loadMore()}
   b.filter.setOnClickListener{filters()};b.sort.setOnClickListener{sorts()};b.columns.setOnClickListener{columns()};setHasOptionsMenu(true)
   watch(vm.data){data->
    if(data!=null&&!vm.accessDenied.value&&!remembered){remembered=true;vm.rememberTable(path,basePath)}
    render();requireActivity().invalidateOptionsMenu()
-  };watch(vm.accessDenied){render();requireActivity().invalidateOptionsMenu()};watch(vm.drafts){requireActivity().invalidateOptionsMenu()};watch(vm.selectedViewId){vm.queryConfig.text("search").let{if(b.search.text.toString()!=it)b.search.setText(it)};render()};watch(vm.hasMore){b.more.isVisible=it};watch(vm.capabilities){render();requireActivity().invalidateOptionsMenu()}
-  watch(vm.busy){val usable=vm.data.value!=null&&!vm.accessDenied.value;b.refresh.isEnabled=!it;b.add.isEnabled=!it&&usable;b.more.isEnabled=!it&&usable;b.viewChoice.isEnabled=!it&&usable;b.filter.isEnabled=!it&&usable;b.sort.isEnabled=!it&&usable;b.columns.isEnabled=!it&&usable;dialog?.getButton(-1)?.isEnabled=!it;b.status.text=if(it)getString(R.string.p0_dang_tai_giu_du_lieu_da_hien_thi) else vm.error.value?:vm.note.value}
+  };watch(vm.accessDenied){render();requireActivity().invalidateOptionsMenu()};watch(vm.drafts){requireActivity().invalidateOptionsMenu()};watch(vm.selectedViewId){vm.queryConfig.text("search").let{if(b.search.text.toString()!=it)b.search.setText(it)};render()};watch(vm.groupCounts){if(it.isNotEmpty())render()};watch(vm.hasMore){b.more.isVisible=it&&vm.error.value!=null;loadMoreIfNeeded()};watch(vm.capabilities){render();requireActivity().invalidateOptionsMenu()}
+  watch(vm.busy){if(!it)b.root.post{loadMoreIfNeeded()};b.more.isVisible=vm.hasMore.value&&vm.error.value!=null;val usable=vm.data.value!=null&&!vm.accessDenied.value;b.refresh.isEnabled=!it;b.add.isEnabled=!it&&usable;b.more.isEnabled=!it&&usable;b.viewChoice.isEnabled=!it&&usable;b.filter.isEnabled=!it&&usable;b.sort.isEnabled=!it&&usable;b.columns.isEnabled=!it&&usable;dialog?.getButton(-1)?.isEnabled=!it;b.status.text=if(it)getString(R.string.p0_dang_tai_giu_du_lieu_da_hien_thi) else vm.error.value?:vm.note.value}
   watch(vm.note){b.status.text=it};watch(vm.notice){if(it!=null){tell(it);vm.notice.value=null}};watch(vm.error){b.status.isVisible=it!=null;if(it!=null){b.status.text=it;dialog?.setMessage(it)}};vm.openTable(path,arguments?.getString("initialViewId"))
  }
  override fun onSaveInstanceState(outState:Bundle){outState.putBoolean("queryExpanded",binding?.queryActions?.isVisible==true);outState.putBoolean("searchExpanded",searchExpanded);super.onSaveInstanceState(outState)}
@@ -97,6 +99,13 @@ class DataTableFragment:Fragment(){
  private fun countLabel(loaded:Int,data:JsonObject):String{
   val total=data.get("total")?.takeIf{it.isJsonPrimitive}?.asInt?:loaded
   return if(total>loaded)getString(R.string.summary_count_of,loaded,total) else getString(R.string.summary_count,loaded)
+ }
+ /** Like Airtable: the next page loads when the list nears its end (or the page does not fill the screen); Kanban loads all pages. */
+ private fun loadMoreIfNeeded(){
+  val b=binding?:return
+  if(!vm.hasMore.value||vm.busy.value||vm.error.value!=null)return
+  val list=when(layoutMode){"CARDS"->b.cards;"KANBAN"->null;else->b.grid}
+  if(list==null||!list.canScrollVertically(1)||(list.layoutManager as? LinearLayoutManager)?.let{it.findLastVisibleItemPosition()>=it.itemCount-10}==true)vm.loadMore()
  }
  private fun tell(message:String){view?.let{com.google.android.material.snackbar.Snackbar.make(it,message,com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show()}}
  private fun updatePresentation(){val b=binding?:return;val ok=!vm.accessDenied.value;b.cards.isVisible=ok&&layoutMode=="CARDS";b.kanban.isVisible=ok&&layoutMode=="KANBAN";b.gridContainer.isVisible=ok&&layoutMode=="GRID";b.group.isVisible=layoutMode=="GRID"}
@@ -175,7 +184,9 @@ class DataTableFragment:Fragment(){
   val groupField=fields.firstOrNull{it.text("id")==groupFieldId}
   b.group.text=getString(R.string.group_count,if(groupField==null)0 else 1)
   adapter.submitList(if(groupField==null)records else com.threeddk.tasks.viewmodel.groupRows(records,groupField).flatMap{(value,rows)->
-   listOf(JsonObject().apply{addProperty("group",getString(R.string.group_header,if(value==null)getString(R.string.p0_cell_empty) else cellLabel(requireContext(),groupField,value,adapter.members),rows.size))})+rows})
+   listOf(JsonObject().apply{addProperty("group",getString(R.string.group_header,if(value==null)getString(R.string.p0_cell_empty) else cellLabel(requireContext(),groupField,value,adapter.members),vm.groupCounts.value[value?.toString()?:"null"]?:rows.size))})+rows})
+  // Group sizes come from the server so they cover rows not loaded yet, like Airtable.
+  vm.loadGroupCounts(groupField?.text("id"))
   b.summary.removeAllViews()
   gridFields.forEachIndexed{i,f->
    val s=com.threeddk.tasks.viewmodel.columnSummary(records,f)
@@ -259,6 +270,47 @@ class DataTableFragment:Fragment(){
    load(path)
   }
  }
+ // Airtable-style bulk delete: long-press a row to start picking, tap to add/remove, then "Xoá" in the action bar.
+ private val selected=linkedSetOf<String>()
+ private var selectionMode:androidx.appcompat.view.ActionMode?=null
+ private fun tapRow(id:String){if(selected.isNotEmpty())toggleSelect(id) else edit(id)}
+ private fun toggleSelect(id:String){
+  if(!selected.remove(id))selected.add(id)
+  adapter.selected=selected.toSet();adapter.notifyDataSetChanged()
+  if(selected.isEmpty()){selectionMode?.finish();return}
+  val mode=selectionMode?:(requireActivity() as androidx.appcompat.app.AppCompatActivity).startSupportActionMode(object:androidx.appcompat.view.ActionMode.Callback{
+   override fun onCreateActionMode(m:androidx.appcompat.view.ActionMode,menu:Menu):Boolean{menu.add(0,1,0,R.string.rows_delete).setIcon(R.drawable.ic_field_delete).setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);return true}
+   override fun onPrepareActionMode(m:androidx.appcompat.view.ActionMode,menu:Menu)=false
+   override fun onActionItemClicked(m:androidx.appcompat.view.ActionMode,item:MenuItem):Boolean{
+    val ids=selected.toList()
+    dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.rows_delete_title,ids.size)).setMessage(R.string.rows_delete_message)
+     .setNegativeButton(R.string.p0_huy,null).setPositiveButton(R.string.rows_delete){_,_->vm.deleteRecords(ids){tell(getString(R.string.rows_deleted,ids.size))};m.finish()}.show()
+    return true
+   }
+   override fun onDestroyActionMode(m:androidx.appcompat.view.ActionMode){selectionMode=null;selected.clear();adapter.selected=emptySet();adapter.notifyDataSetChanged()}
+  }).also{selectionMode=it}
+  mode?.title=getString(R.string.rows_selected,selected.size)
+ }
+ /** Row trash: recently deleted rows of this table, pick some and restore. */
+ private fun rowTrash(){
+  vm.loadTrash{items->
+   if(binding==null)return@loadTrash
+   val primary=vm.data.value?.objects("fields")?.firstOrNull()
+   if(items.isEmpty()){dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.rows_trash).setMessage(R.string.rows_trash_empty).setPositiveButton(R.string.p0_dong,null).show();return@loadTrash}
+   val labels=items.map{r->
+    val name=primary?.let{cellLabel(requireContext(),it,r.getAsJsonObject("cells")?.get(it.text("id")),adapter.members)}.orEmpty().ifBlank{getString(R.string.p0_cell_empty)}
+    val time=runCatching{java.time.OffsetDateTime.parse(r.text("deletedAt")).atZoneSameInstant(java.time.ZoneId.systemDefault()).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))}.getOrDefault("")
+    "$name · $time"
+   }
+   val checked=BooleanArray(items.size)
+   val builder=MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.rows_trash).setMultiChoiceItems(labels.toTypedArray(),checked){_,i,on->checked[i]=on}.setNegativeButton(R.string.p0_dong,null)
+   if(vm.canEditRecords())builder.setPositiveButton(R.string.rows_restore){_,_->
+    val ids=items.filterIndexed{i,_->checked[i]}.map{it.text("id")}
+    if(ids.isNotEmpty())vm.restoreRecords(ids){tell(getString(R.string.rows_restored,ids.size))}
+   }
+   dialog=builder.show()
+  }
+ }
  private fun edit(id:String){
   if(vm.accessDenied.value)return
   val rows=if(layoutMode=="GRID")adapter.currentList.filter{!it.has("group")} else if(layoutMode=="KANBAN")kanbanAdapter.columns.flatMap{it.second} else cardAdapter.currentList
@@ -276,8 +328,9 @@ class DataTableFragment:Fragment(){
   if(vm.supports("savedViews")){menu.add(0,11,0,getString(R.string.p0_luu_thanh_che_do_xem_moi));if(editableView()!=null)menu.add(0,12,1,getString(R.string.p0_luu_thay_doi_che_do_xem))}
   if(vm.data.value?.text("role")=="OWNER"){menu.add(0,10,2,getString(R.string.p0_them_cot));vm.data.value?.objects("fields")?.firstOrNull()?.let{menu.add(0,16,2,getString(R.string.field_primary,it.text("name")))};menu.add(0,14,2,getString(R.string.import_csv))}
   if(vm.drafts.value.isNotEmpty())menu.add(0,13,3,getString(R.string.p0_draft_count,vm.drafts.value.size))
+  if(vm.supports("recordTrash")&&vm.data.value!=null)menu.add(0,17,4,getString(R.string.rows_trash))
  }
- override fun onOptionsItemSelected(item:MenuItem):Boolean{when(item.itemId){R.id.display_mode->chooseLayout();R.id.toggle_table_star->if(!vm.accessDenied.value)vm.toggleBaseStar(basePath);10->addField();16->vm.data.value?.objects("fields")?.firstOrNull()?.let{fieldMenu(it,primary=true)};11->saveView();12->updateView();13->drafts();15->showCollaborators(vm,basePath,(requireActivity() as androidx.appcompat.app.AppCompatActivity).supportActionBar?.title?.toString()?:baseName);14->pickCsv.launch(arrayOf("text/*","application/csv","application/vnd.ms-excel"));else->return super.onOptionsItemSelected(item)};return true}
+ override fun onOptionsItemSelected(item:MenuItem):Boolean{when(item.itemId){R.id.display_mode->chooseLayout();R.id.toggle_table_star->if(!vm.accessDenied.value)vm.toggleBaseStar(basePath);10->addField();17->rowTrash();16->vm.data.value?.objects("fields")?.firstOrNull()?.let{fieldMenu(it,primary=true)};11->saveView();12->updateView();13->drafts();15->showCollaborators(vm,basePath,(requireActivity() as androidx.appcompat.app.AppCompatActivity).supportActionBar?.title?.toString()?:baseName);14->pickCsv.launch(arrayOf("text/*","application/csv","application/vnd.ms-excel"));else->return super.onOptionsItemSelected(item)};return true}
  private fun drafts(){
   val items=vm.drafts.value;val labels=vm.draftLabels()
   dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.p0_ban_nhap_chua_gui_len_bang)).setItems(labels){_,index->

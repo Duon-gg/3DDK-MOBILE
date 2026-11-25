@@ -15,6 +15,9 @@ import com.threeddk.tasks.ui.cellLabel
   var fields=emptyList<JsonObject>()
   var members=emptyList<JsonObject>()
   var primary:JsonObject?=null
+  /** Rows picked for bulk delete; [longClick] starts picking. */
+  var selected:Set<String> = emptySet()
+  var longClick:((String)->Unit)?=null
 
   override fun onCreateViewHolder(parent:ViewGroup,type:Int)=GridHolder(ItemGridRecordBinding.inflate(LayoutInflater.from(parent.context),parent,false))
   override fun onBindViewHolder(holder:GridHolder,position:Int){
@@ -42,6 +45,10 @@ import com.threeddk.tasks.ui.cellLabel
     field.text("name")+": "+cellLabel(holder.root.context,field,cells.get(field.text("id")),members)
    }
    holder.root.setOnClickListener{click(row.text("id"))}
+   val picked=group==null&&row.text("id") in selected
+   holder.root.isActivated=picked;holder.root.alpha=if(selected.isNotEmpty()&&!picked&&group==null)0.6f else 1f
+   androidx.core.view.ViewCompat.setStateDescription(holder.root,if(picked)holder.root.context.getString(R.string.rows_selected_state) else null)
+   if(group==null&&longClick!=null)holder.root.setOnLongClickListener{longClick?.invoke(row.text("id"));true} else holder.root.setOnLongClickListener(null)
   }
  }
  class GridHolder(val binding:ItemGridRecordBinding):RecyclerView.ViewHolder(binding.root){val root get()=binding.root;val title get()=binding.title;val line get()=binding.cells}

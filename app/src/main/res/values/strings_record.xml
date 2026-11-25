@@ -56,6 +56,17 @@
     <string name="collab_role">Quyền của người được mời</string>
     <string name="collab_send_invite">Gửi lời mời</string>
     <string name="collab_link_title">Link mời</string>
+    <string name="role_admin">Quản trị</string>
+    <string name="rows_delete">Xoá</string>
+    <string name="rows_selected">Đã chọn %1$d</string>
+    <string name="rows_selected_state">Đã chọn</string>
+    <string name="rows_delete_title">Xoá %1$d dòng?</string>
+    <string name="rows_delete_message">Các dòng sẽ biến mất khỏi bảng. Có thể khôi phục trong Thùng rác dòng (menu ⋮ của bảng).</string>
+    <string name="rows_deleted">Đã xoá %1$d dòng</string>
+    <string name="rows_trash">Thùng rác dòng</string>
+    <string name="rows_trash_empty">Chưa có dòng nào bị xoá.</string>
+    <string name="rows_restore">Khôi phục</string>
+    <string name="rows_restored">Đã khôi phục %1$d dòng</string>
     <string name="collab_link_none">Chưa bật link mời. Tạo link để ai có link cũng tham gia được.</string>
     <string name="collab_link_active">Ai có link sẽ tham gia với quyền: %1$s</string>
     <string name="collab_link_create">Tạo link</string>

@@ -266,6 +266,29 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
  fun previewInvite(token:String,done:(JsonObject)->Unit)=readNow("invite-links/$token",done)
  /** Read without the busy gate, so a sheet can refresh right after its own mutation; errors go to [error]. */
  fun readNow(resource:String,done:(JsonObject)->Unit){viewModelScope.launch{try{done(repo.refresh(resource))}catch(e:CancellationException){throw e}catch(e:Exception){error.value=friendlyError(e)}}}
+ /** Read without the busy gate or error message; null when offline. For background hints such as pending invites. */
+ fun peek(resource:String,done:(JsonObject?)->Unit){viewModelScope.launch{done(try{repo.refresh(resource)}catch(e:CancellationException){throw e}catch(_:Exception){null})}}
+ /** Whole-table row counts per value of the grouped field (key: the cell's JSON, "null" when empty); empty until loaded. */
+ val groupCounts=MutableStateFlow<Map<String,Int>>(emptyMap())
+ private var groupCountsKey=""
+ fun loadGroupCounts(fieldId:String?){
+  val key=fieldId+queryConfig.get("filter")+queryConfig.text("search")+queryConfig.text("viewId")+data.value?.get("total")
+  if(key==groupCountsKey)return
+  groupCountsKey=key;groupCounts.value=emptyMap()
+  if(fieldId==null||!supports("groupCounts"))return
+  val body=JsonObject().apply{addProperty("fieldId",fieldId);listOf("filter","search","viewId").forEach{k->queryConfig.get(k)?.let{add(k,it.deepCopy())}}}
+  viewModelScope.launch{
+   runCatching{repo.mutate("POST","$path/records/counts",body)}.onSuccess{r->
+    if(groupCountsKey==key)groupCounts.value=r.objects("counts").associate{(it.get("value")?.toString()?:"null") to (it.get("count")?.asInt?:0)}
+   }
+  }
+ }
+ /** Deletes rows (they go to the row trash) in one request. */
+ fun deleteRecords(ids:List<String>,done:()->Unit)=mutate("POST","$path/records/delete",JsonObject().apply{add("ids",Gson().toJsonTree(ids))}){done()}
+ fun restoreRecords(ids:List<String>,done:()->Unit)=mutate("POST","$path/records/restore",JsonObject().apply{add("ids",Gson().toJsonTree(ids))}){done()}
+ fun loadTrash(done:(List<JsonObject>)->Unit)=readNow("$path/records/trash"){done(it.objects("items"))}
+ /** Small background write (e.g. mark read) without the busy gate; failures are ignored and the next load corrects the view. */
+ fun peekPost(resource:String,body:JsonObject,done:()->Unit){viewModelScope.launch{runCatching{repo.mutate("POST",resource,body)};done()}}
  fun acceptInvite(token:String,done:(JsonObject)->Unit)=mutate("POST","invite-links/$token/accept",JsonObject(),done)
  fun versionedMutation(method:String,target:String,base:JsonObject,extra:JsonObject=JsonObject(),done:(JsonObject)->Unit={}){
   mutate(method,target,extra.deepCopy().apply{add("expectedVersion",base["version"])},done)
@@ -431,9 +454,11 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
   return order.distinct().mapNotNull{id->fields.firstOrNull{it.text("id")==id&&(ids.isEmpty()||id in ids)}}
  }
  fun duplicateBase(target:String,base:JsonObject,name:String,done:(JsonObject)->Unit)=versionedMutation("POST","$target/duplicate",base,JsonObject().apply{addProperty("name",name.trim())},done)
- fun inviteMember(target:String,email:String,editor:Boolean,base:JsonObject?=null,done:()->Unit){
+ fun inviteMember(target:String,email:String,editor:Boolean,base:JsonObject?=null,done:()->Unit)=inviteMember(target,email,if(editor)"EDITOR" else "VIEWER",base,done)
+ fun myUid()=repo.uid
+ fun inviteMember(target:String,email:String,role:String,base:JsonObject?=null,done:()->Unit){
   if(!android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()){error.value="Email chưa hợp lệ.";return}
-  val values=JsonObject().apply{addProperty("email",email.trim());addProperty("role",if(editor)"EDITOR" else "VIEWER");base?.get("version")?.let{add("expectedVersion",it)}}
+  val values=JsonObject().apply{addProperty("email",email.trim());addProperty("role",role);base?.get("version")?.let{add("expectedVersion",it)}}
   mutate("POST","$target/invites",values){done()}
  }
 
