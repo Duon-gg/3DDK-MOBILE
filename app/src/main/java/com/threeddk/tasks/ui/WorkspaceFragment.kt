@@ -488,11 +488,15 @@ class WorkspaceFragment:Fragment(){
   }.setNegativeButton(getString(R.string.p0_dong),null).show()
  }
  private fun manageMember(member:JsonObject){
-  val actions=arrayOf(getString(R.string.p0_cho_phep_chinh_sua),getString(R.string.p0_chuyen_sang_chi_xem),getString(R.string.p0_go_khoi_khong_gian),getString(R.string.p0_chuyen_quyen_chu_khong_gian))
-  dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(member.text("displayName")).setItems(actions){_,which->
+  // Index 4 = workspace admin (owner rights); listed first when the server supports it, like Airtable's role list.
+  val base=listOf(0 to getString(R.string.p0_cho_phep_chinh_sua),1 to getString(R.string.p0_chuyen_sang_chi_xem),2 to getString(R.string.p0_go_khoi_khong_gian),3 to getString(R.string.p0_chuyen_quyen_chu_khong_gian))
+  val options=(if(vm.supports("workspaceAdmin")&&member.text("role")!="ADMIN")listOf(4 to getString(R.string.ws_make_admin)) else emptyList())+base
+  val actions=options.map{it.second}.toTypedArray()
+  dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(member.text("displayName")).setItems(actions){_,picked->
+   val which=options[picked].first
    val transfer=which==3
-   val message=when(which){2->getString(R.string.p0_nguoi_nay_se_mat_quyen_truy_cap_khong);3->getString(R.string.p0_ban_se_chuyen_thanh_thanh_vien_co_the);else->getString(R.string.p0_new_role,getString(if(which==0)R.string.p0_co_the_chinh_sua else R.string.p0_chi_xem))}
-   dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(actions[which]+"?").setMessage(member.text("displayName")+"\n\n"+message).setPositiveButton(getString(R.string.p0_xac_nhan)){_,_->
+   val message=when(which){2->getString(R.string.p0_nguoi_nay_se_mat_quyen_truy_cap_khong);3->getString(R.string.p0_ban_se_chuyen_thanh_thanh_vien_co_the);4->getString(R.string.ws_make_admin_message);else->getString(R.string.p0_new_role,getString(if(which==0)R.string.p0_co_the_chinh_sua else R.string.p0_chi_xem))}
+   dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(actions[picked]+"?").setMessage(member.text("displayName")+"\n\n"+message).setPositiveButton(getString(R.string.p0_xac_nhan)){_,_->
     vm.manageMember(path,member,which)
    }.setNegativeButton(getString(R.string.p0_huy),null).show()
   }.setNegativeButton(getString(R.string.p0_dong),null).show()

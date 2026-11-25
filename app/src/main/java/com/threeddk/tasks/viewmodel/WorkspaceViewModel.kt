@@ -300,7 +300,7 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
  fun manageMember(target:String,member:JsonObject,action:Int){
   val transfer=action==3
   val versionMember=if(transfer)data.value?.objects("members")?.firstOrNull{it.text("role")=="OWNER"} else member
-  val payload=JsonObject().apply{addProperty("expectedVersion",versionMember?.get("version")?.asInt?:1);if(transfer)addProperty("targetUid",member.text("uid")) else if(action<2)addProperty("role",if(action==0)"EDITOR" else "VIEWER")}
+  val payload=JsonObject().apply{addProperty("expectedVersion",versionMember?.get("version")?.asInt?:1);if(transfer)addProperty("targetUid",member.text("uid")) else if(action<2||action==4)addProperty("role",when(action){0->"EDITOR";4->"ADMIN";else->"VIEWER"})}
   mutate(if(action==2)"DELETE" else if(transfer)"POST" else "PATCH",if(transfer)"$target/transfer-ownership" else "$target/members/${member.text("uid")}",payload)
  }
  fun createResource(target:String,name:String,done:(JsonObject)->Unit){
