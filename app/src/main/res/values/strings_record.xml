@@ -57,6 +57,8 @@
     <string name="collab_send_invite">Gửi lời mời</string>
     <string name="collab_link_title">Link mời</string>
     <string name="role_admin">Quản trị</string>
+    <string name="ws_make_admin">Đặt làm Quản trị</string>
+    <string name="ws_make_admin_message">Người này sẽ có toàn quyền như chủ không gian: tạo và xoá cơ sở dữ liệu, mời, đổi quyền và gỡ thành viên. Chỉ không thể đổi quyền hay gỡ chủ không gian.</string>
     <string name="rows_delete">Xoá</string>
     <string name="rows_selected">Đã chọn %1$d</string>
     <string name="rows_selected_state">Đã chọn</string>
