@@ -167,7 +167,10 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
    observe()
   }
   // Schema changed elsewhere (another device or member): fetch fresh metadata once instead of staying stuck.
-  try{repo.query(path,queryConfig,append)}catch(e:ApiException){if(e.code!="SCHEMA_CHANGED"||append)throw e;reload()}
+  try{repo.query(path,queryConfig,append)}catch(e:ApiException){
+   // SCHEMA_CHANGED: a field changed; CONFLICT: the open view was saved elsewhere. Both recover by reloading.
+   if(e.code !in listOf("SCHEMA_CHANGED","CONFLICT")||append)throw e;reload()
+  }
  }
  fun refresh(){if(busy.value)return;run{reload();if(!viewResetNotice)note.value=if(tableMode)"Đã cập nhật • Chỉ các trang đã tải có sẵn khi mất mạng" else "Đã cập nhật • Có thể xem khi mất mạng"}}
  private fun run(block:suspend()->Unit){val serial=++requestSerial;requestJob=viewModelScope.launch{
@@ -335,7 +338,12 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
   val options=rawOptions.split(',').map{it.trim()}.filter{it.isNotEmpty()}.distinct()
   if(type in listOf("SELECT","MULTI_SELECT")&&(options.isEmpty()||options.size>30||options.any{it.length>100}))return R.string.p0_nhap_tu_1_den_30_lua_chon_moi
   if(type !in fieldTypes())return R.string.p0_nhap_ten_tu_1_den_100_ky_tu
-  mutate("POST","$path/fields",JsonObject().apply{addProperty("name",name.trim());addProperty("type",type);add("options",Gson().toJsonTree(options));addProperty("expectedSchemaVersion",data.value?.get("schemaVersion")?.asInt?:1);if(position!=null&&supports("fieldInsert"))addProperty("position",position)}){done();created(it.text("id"))}
+  mutate("POST","$path/fields",JsonObject().apply{addProperty("name",name.trim());addProperty("type",type);add("options",Gson().toJsonTree(options));addProperty("expectedSchemaVersion",data.value?.get("schemaVersion")?.asInt?:1);if(position!=null&&supports("fieldInsert"))addProperty("position",position)}){
+   // Like Airtable, a field added from this screen shows in the current view even when the view hides columns.
+   val ids=queryConfig.getAsJsonArray("fieldIds")
+   if(ids!=null&&ids.size()>0&&it.text("id").isNotBlank())queryConfig=queryConfig.deepCopy().apply{getAsJsonArray("fieldIds").add(it.text("id"))}
+   done();created(it.text("id"))
+  }
   return null
  }
  fun canEditFields()=data.value?.text("role")=="OWNER"&&supports("fieldEdit")

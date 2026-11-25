@@ -261,11 +261,16 @@ class RecordViewModel(app:Application,private val savedState:SavedStateHandle):A
   if(recordId=="new")return
   viewModelScope.launch{runCatching{repo.mutate("GET","$path/records/$recordId/comments",JsonObject())}.onSuccess{comments.value=it.objects("comments")}}
  }
+ private var sendingComment=false
  fun addComment(body:String,mentions:List<String>,done:()->Unit){
-  if(body.isBlank()||body.length>2000||recordId=="new")return
+  if(body.isBlank()||recordId=="new"||sendingComment)return
+  if(body.length>2000){status.value="Bình luận tối đa 2.000 ký tự.";return}
+  // A double tap on Gửi must not post the comment twice.
+  sendingComment=true
   viewModelScope.launch{
    try{comments.value=repo.mutate("POST","$path/records/$recordId/comments",JsonObject().apply{addProperty("body",body.trim());add("mentions",Gson().toJsonTree(mentions.distinct()))}).objects("comments");done()}
    catch(e:CancellationException){throw e}catch(e:Exception){status.value=friendlyError(e)}
+   finally{sendingComment=false}
   }
  }
  /** Airtable rules: only the author edits; the author or a base owner deletes. */

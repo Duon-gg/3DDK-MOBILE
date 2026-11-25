@@ -39,5 +39,8 @@ fun friendlyError(error:Throwable):String=when((error as? ApiException)?.code) {
  "VALIDATION" -> "Thông tin chưa hợp lệ. Kiểm tra lại các trường."
  "NOT_FOUND" -> "Không tìm thấy dữ liệu này."
  "RATE_LIMIT" -> "Bạn thao tác quá nhanh. Thử lại sau một phút."
+ "PAYLOAD_TOO_LARGE" -> "Nội dung quá dài. Rút ngắn bớt rồi lưu lại."
+ "UNSUPPORTED_FIELD" -> "Kiểu cột này chưa được hỗ trợ trên máy chủ."
+ "INVALID_VIEW" -> "Chế độ xem này không hợp lệ. Hãy tải lại bảng."
  else -> if(error is java.io.IOException) "Không kết nối được. Dữ liệu đã lưu và bản nháp vẫn còn." else "Thao tác chưa thành công. Kiểm tra kết nối và thử lại."
 }
