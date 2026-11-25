@@ -30,8 +30,8 @@ abstract class TaskDatabase:RoomDatabase() {
  abstract fun dao():TaskDao
  suspend fun handleAccessFailure(code:String,owner:String?=null){
   if(code in listOf("NOT_INVITED","FORBIDDEN","UNVERIFIED","UNAUTHORIZED"))withTransaction{
+   // Drafts stay: they are keyed by owner, so no other account sees them, and the user gets them back after signing in again.
    if(owner==null)dao().clearCache() else dao().clearOwnerCache(owner)
-   if(code!="UNAUTHORIZED"){if(owner==null)dao().clearDrafts() else dao().clearOwnerDrafts(owner)}
   }
  }
  companion object {

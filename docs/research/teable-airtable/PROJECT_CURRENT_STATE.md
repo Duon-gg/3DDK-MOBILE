@@ -1,6 +1,6 @@
 # Hiện trạng dự án 3DDK
 
-Ngày khảo sát: **17/10/2026**. Checkout: `D:\LEARNING\Lap trinh ung dung di dong\PROJECT MOBILE`; nhánh `codex/teable-product-design`; commit được đọc: `2e64457d2f79a5774c5f7877c0a1cd1cd0668717`. Đây là khảo sát source và báo cáo đã có, **không chạy lại build/test, không gọi cloud, không sửa code hay database**. Liên kết bằng chứng dưới đây cố định vào commit này. Secret, `local.properties`, service account và keystore không được đọc.
+Ngày khảo sát: **17/10/2026**. Checkout: `D:\LEARNING\Lap trinh ung dung di dong\PROJECT MOBILE`; nhánh thiết kế sản phẩm Teable; commit được đọc: `2e64457d2f79a5774c5f7877c0a1cd1cd0668717`. Đây là khảo sát source và báo cáo đã có, **không chạy lại build/test, không gọi cloud, không sửa code hay database**. Liên kết bằng chứng dưới đây cố định vào commit này. Secret, `local.properties`, service account và keystore không được đọc.
 
 **Yêu cầu mới người dùng đã xác nhận trong đợt nghiên cứu:** sản phẩm hướng tới công ty khoảng **100 người**. Câu trả lời tiếp theo “khoảng 20 người” được diễn giải là khoảng **20 người thao tác đồng thời**; cần xác nhận workload cụ thể trước khi kiểm thử tải. Đây là mục tiêu thiết kế, không phải năng lực đã chứng minh của bản preview. Số bản ghi mỗi bảng, lượng tệp và mốc nghiệm thu chưa biết; chưa thay hard cap hoặc dịch vụ cloud.
 

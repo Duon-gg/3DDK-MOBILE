@@ -40,6 +40,13 @@ Deno.test('v1 dispatch remains limited to successful v1 mutations',async()=>{
  await handler(request('/api/v1/me','PATCH','{}'));
  assert(calls.every(call=>call.name==='api_dispatch'));assert(dispatch.length===1);
 });
+Deno.test('v2 comment writes wake the dispatcher for @mention pushes; other v2 writes do not',async()=>{
+ const {handler,dispatch,request}=fixture();
+ await handler(request('/api/v2/tables/t/records/r/comments','GET'));assert(dispatch.length===0);
+ await handler(request('/api/v2/tables/t/records/r/comments','POST','{"body":"hi"}'));assert(dispatch.length===1);
+ await handler(request('/api/v2/tables/t/records/r/comments/c','PATCH','{"body":"hi"}'));assert(dispatch.length===2);
+ await handler(request('/api/v2/tables/t/records/r/cells','PATCH','{}'));assert(dispatch.length===2);
+});
 Deno.test('malformed, scalar, array, null and empty JSON are rejected before RPC',async()=>{
  const {handler,calls,request}=fixture();
  for(const body of ['{', 'null', '[]', '1', '"text"', '']) {

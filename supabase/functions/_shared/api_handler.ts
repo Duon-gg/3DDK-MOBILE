@@ -47,7 +47,8 @@ export function createApiHandler(dependencies:Dependencies) {
    const result=await dependencies.rpc(match[1]==='2'?'workspace_api':'api_dispatch',{
     p_uid:actor.uid,p_email:actor.email,p_name:actor.name,p_method:request.method,p_path:match[2],p_body:body,
    });
-   if(match[1]==='1'&&request.method!=='GET') dependencies.dispatchLegacy?.();
+   // v1 writes and v2 comment writes (which may queue @mention pushes) wake the dispatcher right away.
+   if(request.method!=='GET'&&(match[1]==='1'||/^\/tables\/[^/]+\/records\/[^/]+\/comments(\/[^/]+)?$/.test(match[2]))) dependencies.dispatchLegacy?.();
    return Response.json(result,{headers:{'X-Request-Id':requestId,'Cache-Control':'no-store'}});
   } catch(error) {
    const response=failure(error,requestId);
