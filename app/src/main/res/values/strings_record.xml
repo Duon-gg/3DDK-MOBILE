@@ -16,6 +16,7 @@
     <string name="home_base_opened">Mở dữ liệu %1$s</string>
   <string name="import_csv">Nhập CSV</string>
   <string name="import_csv_unreadable">Không đọc được file CSV</string>
+  <string name="import_csv_too_large">File CSV lớn hơn 2 MB, hãy chia nhỏ rồi nhập lại</string>
   <string name="field_edit">Sửa cột</string>
   <string name="field_duplicate">Nhân bản cột</string>
   <string name="field_delete">Xoá cột</string>

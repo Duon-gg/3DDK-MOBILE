@@ -47,8 +47,20 @@ fun csvCell(field:JsonObject,raw:String):com.google.gson.JsonElement?{
   "DATE"->v.takeIf{Regex("""\d{4}-\d{2}-\d{2}""").matches(it)}?.let{com.google.gson.JsonPrimitive(it)}
   "SELECT"->v.takeIf{field.getAsJsonArray("options")?.any{o->o.asString==v}==true}?.let{com.google.gson.JsonPrimitive(it)}
   "LONG_TEXT"->com.google.gson.JsonPrimitive(v.take(20000))
-  "URL","EMAIL","PHONE"->com.google.gson.JsonPrimitive(v)
+  // Same patterns as ws_p0_validate on the server.
+  "URL"->v.takeIf{it.length<=2000&&Regex("""^https?://\S+$""",RegexOption.IGNORE_CASE).matches(it)}?.let{com.google.gson.JsonPrimitive(it)}
+  "EMAIL"->v.takeIf{it.length<=254&&Regex("""^[^@\s]+@[^@\s]+\.[^@\s]+$""").matches(it)}?.let{com.google.gson.JsonPrimitive(it)}
+  "PHONE"->v.takeIf{Regex("""^[+0-9 ().-]{3,40}$""").matches(it)}?.let{com.google.gson.JsonPrimitive(it)}
   "MULTI_SELECT"->{val opts=field.getAsJsonArray("options")?.map{it.asString}.orEmpty();com.google.gson.JsonArray().apply{v.split(',').map{it.trim()}.filter{it in opts}.distinct().forEach(::add)}.takeIf{it.size()>0}}
   else->null
  }
+}
+
+/** A filled cell the server would reject; USER cells are skipped on import, never rejected. */
+fun csvCellInvalid(field:JsonObject,raw:String)=raw.isNotBlank()&&field["type"]?.asString!="USER"&&csvCell(field,raw)==null
+
+/** Reads at most [limit] bytes; null when the stream is longer, so a big file is refused instead of cut mid-row. */
+fun readLimited(input:java.io.InputStream,limit:Int):ByteArray?{
+ val out=java.io.ByteArrayOutputStream();val buf=ByteArray(8192)
+ while(true){val n=input.read(buf);if(n<0)return out.toByteArray();out.write(buf,0,n);if(out.size()>limit)return null}
 }

@@ -103,6 +103,8 @@ fun Fragment.showCollaborators(vm:WorkspaceViewModel,base:String,baseName:String
  // Errors (duplicate invite, lost access, offline) would otherwise land on the screen hidden behind the sheet.
  val errors=viewLifecycleOwner.lifecycleScope.launch{vm.error.collect{if(it!=null&&sheet.isShowing)com.google.android.material.snackbar.Snackbar.make(b.root,it,com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show()}}
  sheet.setOnDismissListener{errors.cancel()}
+ // Close with the screen (rotation, navigation) so late callbacks never touch a dead view.
+ viewLifecycleOwner.lifecycle.addObserver(androidx.lifecycle.LifecycleEventObserver{_,event->if(event==androidx.lifecycle.Lifecycle.Event.ON_DESTROY)sheet.dismiss()})
  sheet.show();load()
 }
 

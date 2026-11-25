@@ -53,8 +53,10 @@ class DataTableFragment:Fragment(){
  private var searchExpanded=false
  private val pickCsv=registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()){uri->
   if(uri==null)return@registerForActivityResult
-  val text=runCatching{requireContext().contentResolver.openInputStream(uri)!!.use{it.readBytes().take(2_000_000).toByteArray().toString(Charsets.UTF_8)}}.getOrNull()
-  if(text==null)com.google.android.material.snackbar.Snackbar.make(requireView(),R.string.import_csv_unreadable,com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show() else vm.importCsv(text)
+  val read=runCatching{requireContext().contentResolver.openInputStream(uri)!!.use{com.threeddk.tasks.data.readLimited(it,2_000_000)}}
+  val bytes=read.getOrNull()
+  if(bytes!=null)vm.importCsv(bytes.toString(Charsets.UTF_8))
+  else com.google.android.material.snackbar.Snackbar.make(requireView(),if(read.isSuccess)R.string.import_csv_too_large else R.string.import_csv_unreadable,com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show()
  }
  override fun onCreateView(i:LayoutInflater,c:ViewGroup?,s:Bundle?)=FragmentDataTableBinding.inflate(i,c,false).also{binding=it}.root
  override fun onViewCreated(v:View,s:Bundle?){
