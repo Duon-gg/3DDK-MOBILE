@@ -268,6 +268,18 @@ class RecordViewModel(app:Application,private val savedState:SavedStateHandle):A
    catch(e:CancellationException){throw e}catch(e:Exception){status.value=friendlyError(e)}
   }
  }
+ /** Airtable rules: only the author edits; the author or a base owner deletes. */
+ fun canEditComment(c:JsonObject)=runCatching{repo.uid}.getOrNull()==c.text("uid")
+ fun canDeleteComment(c:JsonObject)=canEditComment(c)||table.value?.text("role")=="OWNER"
+ /** [body] null deletes the comment. */
+ fun changeComment(id:String,body:String?,mentions:List<String>,done:()->Unit){
+  if(recordId=="new"||(body!=null&&(body.isBlank()||body.length>2000)))return
+  viewModelScope.launch{
+   try{
+    comments.value=repo.mutate(if(body==null)"DELETE" else "PATCH","$path/records/$recordId/comments/$id",JsonObject().apply{if(body!=null){addProperty("body",body.trim());add("mentions",Gson().toJsonTree(mentions.distinct()))}}).objects("comments");done()
+   }catch(e:CancellationException){throw e}catch(e:Exception){status.value=friendlyError(e)}
+  }
+ }
  fun duplicate(){
   if(busy.value||!canArchive||conflict.value)return
   viewModelScope.launch{busy.value=true
