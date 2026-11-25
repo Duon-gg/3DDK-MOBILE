@@ -359,6 +359,13 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
   viewModelScope.launch{try{
    busy.value=true;error.value=null
    var meta=repo.metadata(path)
+   // Check every row before the first write: records are created one by one, so a bad row mid-file would leave a partial import.
+   for((col,name) in header.withIndex()){
+    val field=meta.objects("fields").firstOrNull{it.text("name").equals(name,true)}?:continue
+    body.withIndex().firstOrNull{(_,row)->com.threeddk.tasks.data.csvCellInvalid(field,row.getOrElse(col){""})}?.let{(i,_)->error.value="Dòng ${i+2}, cột \"$name\": giá trị không hợp lệ với kiểu cột. Chưa nhập dòng nào.";return@launch}
+    if(field.text("systemKey")=="title")body.withIndex().firstOrNull{(_,row)->row.getOrElse(col){""}.isBlank()}?.let{(i,_)->error.value="Dòng ${i+2}: cột \"$name\" không được để trống. Chưa nhập dòng nào.";return@launch}
+   }
+   if(meta.objects("fields").any{it.text("systemKey")=="title"&&header.none{h->h.equals(it.text("name"),true)}}){error.value="File CSV cần cột \"${meta.objects("fields").first{it.text("systemKey")=="title"}.text("name")}\". Chưa nhập dòng nào.";return@launch}
    for((col,name) in header.withIndex()){
     if(meta.objects("fields").any{it.text("name").equals(name,true)})continue
     val (type,options)=com.threeddk.tasks.data.inferFieldType(body.map{it.getOrElse(col){""}})
@@ -366,10 +373,14 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
     meta=repo.metadata(path)
    }
    val fields=header.map{name->meta.objects("fields").first{it.text("name").equals(name,true)}}
-   for(row in body){
+   var created=0
+   try{for(row in body){
     val cells=JsonObject()
     fields.forEachIndexed{col,field->com.threeddk.tasks.data.csvCell(field,row.getOrElse(col){""})?.let{cells.add(field.text("id"),it)}}
-    repo.mutate("POST","$path/records",JsonObject().apply{addProperty("requestId",java.util.UUID.randomUUID().toString());addProperty("expectedVersion",1);addProperty("expectedSchemaVersion",meta["schemaVersion"].asInt);add("cells",cells)})
+    repo.mutate("POST","$path/records",JsonObject().apply{addProperty("requestId",java.util.UUID.randomUUID().toString());addProperty("expectedVersion",1);addProperty("expectedSchemaVersion",meta["schemaVersion"].asInt);add("cells",cells)});created++
+   }}catch(e:CancellationException){throw e}catch(e:Exception){
+    // e.g. the 500-record limit: say exactly how far it got so a retry does not duplicate rows.
+    runCatching{reload()};error.value="Đã nhập $created/${body.size} dòng rồi dừng: ${friendlyError(e)}";return@launch
    }
    reload();note.value="Đã nhập ${body.size} dòng từ CSV"
   }catch(e:CancellationException){throw e}catch(e:Exception){error.value=friendlyError(e)}finally{busy.value=false}}

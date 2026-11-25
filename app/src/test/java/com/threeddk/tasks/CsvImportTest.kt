@@ -2,6 +2,8 @@ package com.threeddk.tasks
 
 import com.google.gson.JsonParser
 import com.threeddk.tasks.data.csvCell
+import com.threeddk.tasks.data.csvCellInvalid
+import com.threeddk.tasks.data.readLimited
 import com.threeddk.tasks.data.inferFieldType
 import com.threeddk.tasks.data.parseCsv
 import org.junit.Assert.assertEquals
@@ -24,5 +26,19 @@ class CsvImportTest {
   assertNull(csvCell(select,"B"))
   assertEquals(true,csvCell(JsonParser.parseString("""{"type":"CHECKBOX"}""").asJsonObject,"Checked")!!.asBoolean)
   assertNull(csvCell(JsonParser.parseString("""{"type":"DATE"}""").asJsonObject,"Ngày mai"))
+ }
+ @Test fun flagsCellsTheServerWouldReject(){
+  fun f(type:String)=JsonParser.parseString("""{"type":"$type","options":["A"]}""").asJsonObject
+  assertEquals(false,csvCellInvalid(f("URL"),"https://3ddk.vn/a"))
+  assertEquals(true,csvCellInvalid(f("URL"),"3ddk.vn"))
+  assertEquals(true,csvCellInvalid(f("EMAIL"),"a@b"))
+  assertEquals(true,csvCellInvalid(f("PHONE"),"gọi tôi"))
+  assertEquals(true,csvCellInvalid(f("SELECT"),"B"))
+  assertEquals(false,csvCellInvalid(f("SELECT"),"  "))
+  assertEquals(false,csvCellInvalid(f("USER"),"Khang"))
+ }
+ @Test fun refusesStreamsOverTheLimit(){
+  assertEquals(3,readLimited("abc".byteInputStream(),3)!!.size)
+  assertNull(readLimited(ByteArray(20_000).inputStream(),10_000))
  }
 }
