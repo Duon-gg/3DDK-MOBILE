@@ -349,7 +349,7 @@ Mỗi task ưu tiên một phần hoàn chỉnh dùng được, phần lớn có
 1. Có chọn toàn bộ P0 ở trên làm đợt kế tiếp không? Có thể duyệt P0 theo các cổng kiểm tra; quyết định này chưa bao gồm P1/P2.
 2. Xác nhận workload 100 tài khoản và khoảng 20 người thao tác đồng thời; cung cấp số dòng mỗi bảng và ngày bàn giao. Nếu chưa biết, duyệt đợt thử nội bộ để đo workload trước khi tăng giới hạn.
 3. Chọn quyền theo workspace hiện có hay cần quyền chi tiết hơn; có personal view hay không; field USER chọn một hay nhiều người; trạng thái tự do hay quy trình duyệt.
-4. Chọn có cài/thử REA cục bộ theo [kế hoạch thiết lập](REA_SETUP_PLAN.md) không. Việc duyệt kiến trúc không phụ thuộc vào cài REA.
+4. Chọn có dùng công cụ phân tích bổ sung hay không. Việc duyệt kiến trúc không phụ thuộc vào việc này.
 5. Duyệt môi trường staging, backup/retention, hạn mức và chi phí trước khi kiểm thử tải hoặc chạy migration cloud. Chưa tự đổi gói miễn phí.
 
 **Dừng tại đây để duyệt.** Không task nào của roadmap được tự động kích hoạt bởi việc ghi tài liệu này.
