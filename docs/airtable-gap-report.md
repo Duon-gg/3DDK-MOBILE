@@ -12,9 +12,9 @@ Nguồn: thao tác app Airtable Android qua adb, đối chiếu code app và bac
 | Tìm trong bảng | ✅ | |
 | Lọc, sắp xếp, ẩn cột | ✅ | |
 | Lưu chế độ xem có tên, tìm chế độ xem | ✅ | |
-| Dạng lưới / dạng thẻ | ✅ | |
-| Nhóm theo một cột | ✅ | Chỉ nhớ trên máy, chưa lưu vào chế độ xem. |
-| Kanban theo cột lựa chọn, kéo thẻ sang cột khác | ✅ | Giữ thẻ rồi kéo; TalkBack có thao tác "Chuyển sang cột". Chỉ nhớ trên máy. |
+| Dạng lưới / dạng thẻ | ✅ | Kiểu hiển thị lưu theo chế độ xem; "Tất cả dòng" (chưa chọn chế độ xem) chỉ nhớ trên máy. |
+| Nhóm theo một cột | ✅ | Lưu vào chế độ xem cùng kiểu hiển thị. |
+| Kanban theo cột lựa chọn, kéo thẻ sang cột khác | ✅ | Giữ thẻ rồi kéo; TalkBack có thao tác "Chuyển sang cột". Lưu vào chế độ xem. |
 | Calendar | ❌ | Để sau. |
 | Gallery, Form, List, chỉnh chiều cao dòng | ❌ | Không làm. |
 
