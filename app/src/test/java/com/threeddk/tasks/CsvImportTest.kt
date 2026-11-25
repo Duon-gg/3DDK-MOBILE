@@ -3,6 +3,7 @@ package com.threeddk.tasks
 import com.google.gson.JsonParser
 import com.threeddk.tasks.data.csvCell
 import com.threeddk.tasks.data.csvCellInvalid
+import com.threeddk.tasks.data.csvBatches
 import com.threeddk.tasks.data.readLimited
 import com.threeddk.tasks.data.inferFieldType
 import com.threeddk.tasks.data.parseCsv
@@ -40,5 +41,12 @@ class CsvImportTest {
  @Test fun refusesStreamsOverTheLimit(){
   assertEquals(3,readLimited("abc".byteInputStream(),3)!!.size)
   assertNull(readLimited(ByteArray(20_000).inputStream(),10_000))
+ }
+ @Test fun batchesStayUnderTheBodyLimit(){
+  val rows=List(500){JsonParser.parseString("""{"f":"${"ă".repeat(100)}"}""").asJsonObject}
+  val batches=csvBatches(rows)
+  assertEquals(500,batches.sumOf{it.size})
+  batches.forEach{b->assert(b.sumOf{it.toString().toByteArray().size+12}<=24_000)}
+  assertEquals(1,csvBatches(rows.take(3)).size)
  }
 }

@@ -20,9 +20,9 @@ class TaskMessagingService:FirebaseMessagingService(){
   if(repo.uid==null||message.data["recipientUid"]!=repo.uid)return
   if(android.os.Build.VERSION.SDK_INT>=33&&ContextCompat.checkSelfPermission(this,Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)return
   val id=message.data["notificationId"]?:return
-  val intent=Intent(this,MainActivity::class.java).putExtra("taskId",message.data["taskId"]).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+  val intent=Intent(this,MainActivity::class.java).putExtra("taskId",message.data["taskId"]).putExtra("tableId",message.data["tableId"]).putExtra("recordId",message.data["recordId"]).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
   val pending=PendingIntent.getActivity(this,id.hashCode(),intent,PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-  NotificationManagerCompat.from(this).notify(id,id.hashCode(),NotificationCompat.Builder(this,"tasks").setSmallIcon(R.drawable.ic_notification).setContentTitle(getString(R.string.app_name)).setContentText(message.notification?.body?:"Nhóm có cập nhật công việc.").setContentIntent(pending).setAutoCancel(true).build())
+  NotificationManagerCompat.from(this).notify(id,id.hashCode(),NotificationCompat.Builder(this,"tasks").setSmallIcon(R.drawable.ic_notification).setContentTitle(message.notification?.title?:getString(R.string.app_name)).setContentText(message.notification?.body?:"Nhóm có cập nhật công việc.").setContentIntent(pending).setAutoCancel(true).build())
  }
  override fun onDestroy(){scope.cancel();super.onDestroy()}
 }

@@ -75,14 +75,26 @@ class AppViewModel(app:Application):AndroidViewModel(app) {
  }
  private suspend fun refreshNow() {
   try {
-   repo.refresh();session.value="READY";syncNote.value="Đã đồng bộ • ${formattedTime(java.time.Instant.now().toString())}"
+   repo.refresh();session.value="READY";registerPush()
+   syncNote.value="Đã đồng bộ • ${formattedTime(java.time.Instant.now().toString())}"
   } catch(e:Exception){
    syncNote.value="Đang xem dữ liệu đã lưu • Chưa đồng bộ được"
    if(e is ApiException && e.code in listOf("NOT_INVITED","FORBIDDEN","UNVERIFIED","UNAUTHORIZED")) {
-    observer?.cancel();rows.value=emptyList();drafts.value=emptyList();session.value=if(e.code=="UNVERIFIED")"VERIFY" else "AUTH"
+    observer?.cancel();rows.value=emptyList();drafts.value=emptyList()
+    // An expired session really signs out of Firebase, so the next launch does not restore it and bounce back here.
+    if(e.code=="UNAUTHORIZED")repo.auth?.signOut()
+    session.value=when(e.code){"UNVERIFIED"->"VERIFY";"UNAUTHORIZED"->"AUTH";else->"BLOCKED"}
    }
    throw e
   }
+ }
+ /** Registers this phone for @mention pushes once per signed-in account and app start (onNewToken fires before sign-in). */
+ private var pushOwner:String?=null
+ private fun registerPush(){
+  val owner=repo.uid?:return
+  if(pushOwner==owner)return
+  pushOwner=owner
+  viewModelScope.launch{runCatching{repo.registerDevice()}.onFailure{pushOwner=null}}
  }
  fun refresh()=execute{refreshNow()}
  fun login(email:String,password:String,register:Boolean,remember:Boolean)=execute{
@@ -128,7 +140,7 @@ class AppViewModel(app:Application):AndroidViewModel(app) {
   }
  }
  fun logout()=execute{
-  observer?.cancel();repo.logout();rows.value=emptyList();drafts.value=emptyList();session.value="AUTH";pendingTaskId=null
+  observer?.cancel();pushOwner=null;repo.logout();rows.value=emptyList();drafts.value=emptyList();session.value="AUTH";pendingTaskId=null
   try{CredentialManager.create(getApplication()).clearCredentialState(ClearCredentialStateRequest())}
   catch(e:ClearCredentialException){message.value=getApplication<Application>().getString(R.string.auth_logout_provider_warning)}
  }

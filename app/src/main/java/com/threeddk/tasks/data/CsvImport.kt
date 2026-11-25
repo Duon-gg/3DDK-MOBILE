@@ -64,3 +64,14 @@ fun readLimited(input:java.io.InputStream,limit:Int):ByteArray?{
  val out=java.io.ByteArrayOutputStream();val buf=ByteArray(8192)
  while(true){val n=input.read(buf);if(n<0)return out.toByteArray();out.write(buf,0,n);if(out.size()>limit)return null}
 }
+
+/** Splits rows into batches that stay under the API's 32 KB body limit (UTF-8, with room for the envelope). */
+fun csvBatches(rows:List<JsonObject>,maxBytes:Int=24_000):List<List<JsonObject>>{
+ val batches=mutableListOf<MutableList<JsonObject>>();var size=0
+ for(row in rows){
+  val bytes=row.toString().toByteArray(Charsets.UTF_8).size+12
+  if(batches.isEmpty()||size+bytes>maxBytes){batches.add(mutableListOf());size=0}
+  batches.last().add(row);size+=bytes
+ }
+ return batches
+}
