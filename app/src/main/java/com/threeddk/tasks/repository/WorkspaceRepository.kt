@@ -101,7 +101,7 @@ class WorkspaceRepository(private val session:TaskRepository) {
  private suspend fun fetch(owner:String,method:String,path:String,body:JsonObject=JsonObject()):JsonElement {
   try{return session.workspaceApi.call(method,path,body).also{checkOwner(owner)}}
   catch(e:ApiException){
-   if(e.code=="FORBIDDEN"||(e.code=="NOT_FOUND"&&method=="GET"))session.db.withTransaction{
+   if(dropsWorkspaceCache(e.code,method,path))session.db.withTransaction{
     val before=session.dao.entries(owner).filter{it.kind.startsWith("v2")}
     val after=cacheAfterWorkspaceRevocation(before,path)
     session.dao.delete(before.filter{it !in after});session.dao.put(after.filter{it !in before})
@@ -214,6 +214,13 @@ fun mergeRecordPage(previous:JsonObject?,page:JsonObject):JsonObject=page.deepCo
   add("items",JsonArray().apply{rows.values.forEach{add(it)}})
  }
 }
+
+/**
+ * Only a denied read of a workspace, base or table itself (or its metadata/sharing) means access was lost.
+ * A missing record, comment or history entry, or a refused write (e.g. not the comment's author), keeps the offline cache.
+ */
+fun dropsWorkspaceCache(code:String,method:String,path:String)=
+ method=="GET"&&code in listOf("FORBIDDEN","NOT_FOUND")&&path.trim('/').split('/').size<=3
 
 /** A workspace denial cannot erase offline work from another workspace. */
 fun cacheAfterWorkspaceRevocation(rows:List<CacheEntry>,path:String):List<CacheEntry>{

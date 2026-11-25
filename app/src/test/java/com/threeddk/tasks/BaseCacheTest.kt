@@ -1,6 +1,7 @@
 package com.threeddk.tasks
 import com.threeddk.tasks.repository.cacheAfterBaseRemoval
 import com.threeddk.tasks.repository.cacheAfterWorkspaceRevocation
+import com.threeddk.tasks.repository.dropsWorkspaceCache
 
 import com.threeddk.tasks.data.CacheEntry
 import org.junit.Assert.*
@@ -39,5 +40,13 @@ class BaseCacheTest {
  @Test fun homeLinkInvalidatesTableEvenWithoutBaseSnapshot(){
   val rows=listOf(CacheEntry("a","v2-home","tables/t","""{"basePath":"bases/b"}"""),CacheEntry("a","v2-record","tables/t/r","{}"))
   assertTrue(cacheAfterBaseRemoval(rows,"bases/b").isEmpty())
+ }
+ @Test fun onlyDeniedReadsOfTheContainerDropTheWorkspaceCache(){
+  assertTrue(dropsWorkspaceCache("FORBIDDEN","GET","tables/t/metadata"))
+  assertTrue(dropsWorkspaceCache("NOT_FOUND","GET","bases/b"))
+  assertFalse(dropsWorkspaceCache("NOT_FOUND","GET","tables/t/records/r"))
+  assertFalse(dropsWorkspaceCache("NOT_FOUND","GET","tables/t/records/r/comments"))
+  assertFalse(dropsWorkspaceCache("FORBIDDEN","DELETE","tables/t/records/r/comments/c"))
+  assertFalse(dropsWorkspaceCache("FORBIDDEN","POST","tables/t/records/query"))
  }
 }

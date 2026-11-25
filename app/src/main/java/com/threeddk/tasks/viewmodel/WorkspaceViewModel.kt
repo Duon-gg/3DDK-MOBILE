@@ -62,8 +62,10 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
   }
  }
  fun toggleWorkspaceStar(resource:String){run{repo.toggleWorkspaceStar(resource)}}
+ /** A tap made while a load runs waits for it to finish instead of being dropped without a word. */
+ private fun whenIdle(action:()->Unit){if(!busy.value)action() else viewModelScope.launch{busy.first{!it};action()}}
  fun tablesInBase(basePath:String,done:(List<JsonObject>)->Unit){
-  if(busy.value)return
+  if(busy.value){whenIdle{tablesInBase(basePath,done)};return}
   run{
    val data=try{repo.refresh(basePath)}catch(e:java.io.IOException){repo.cached(basePath)?:throw e}
    done(data.objects("tables"))
@@ -98,7 +100,7 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
  private var pendingPair:Pair<String,JsonObject>?=null
  fun supports(feature:String)=capabilities.value?.getAsJsonObject("features")?.get(feature)?.asBoolean==true
  fun readResource(resource:String,done:(JsonObject)->Unit){
-  if(busy.value)return
+  if(busy.value){whenIdle{readResource(resource,done)};return}
   run{val result=repo.refresh(resource);busy.value=false;done(result)}
  }
  fun open(resource:String){
@@ -154,7 +156,7 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
   if(queryConfig.get("viewVersion")!=next.get("viewVersion"))viewLayout=meta.objects("views").firstOrNull{it.text("id")==selectedViewId.value}?.get("layout")?.takeIf{it.isJsonObject}?.asJsonObject
   viewResetNotice=selectedViewId.value!=null&&queryConfig.get("viewVersion")!=next.get("viewVersion")
   if(selectedViewId.value!=null&&!next.has("viewId"))selectedViewId.value=null
-  if(viewResetNotice)note.value="Chế độ xem đã đổi • Đã nhận bộ lọc, sắp xếp và cột mới; các điều chỉnh chưa lưu đã được bỏ"
+  if(viewResetNotice){note.value="Chế độ xem đã đổi • Đã nhận bộ lọc, sắp xếp và cột mới; các điều chỉnh chưa lưu đã được bỏ";notice.value=note.value}
   queryConfig=next;observe();repo.query(path,queryConfig)
  }
  private suspend fun queryCurrent(append:Boolean=false){
@@ -185,7 +187,7 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
  }
  fun search(query:String){searchJob?.cancel();searchJob=viewModelScope.launch{delay(300);queryTable(search=query)}}
  fun loadMore(){if(!tableMode||busy.value||!hasMore.value)return;run{
-  try{queryCurrent(true)}catch(e:ApiException){if(e.code=="CURSOR_STALE"){queryCurrent();note.value="Dữ liệu đã đổi • Đã tải lại trang đầu"}else throw e}
+  try{queryCurrent(true)}catch(e:ApiException){if(e.code=="CURSOR_STALE"){queryCurrent();note.value="Dữ liệu đã đổi • Đã tải lại trang đầu";notice.value=note.value}else throw e}
  }}
  fun discardDraft(taskId:String){
   if(busy.value||!tableMode||!(taskId.startsWith("v2/$path/new/")||taskId=="v2/$path/new"))return
@@ -212,12 +214,12 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
   mutate("POST","$path/views",body){result->selectView(result.text("id"));done()}
  }
  fun mutate(method:String,target:String,values:JsonObject,done:(JsonObject)->Unit={}){
-  if(busy.value)return
+  if(busy.value){whenIdle{mutate(method,target,values,done)};return}
   val signature=method+target+values.toString()
   val payload=if(pendingPair?.first==signature)pendingPair!!.second else values.deepCopy().apply{addProperty("requestId",java.util.UUID.randomUUID().toString())}.also{pendingPair=signature to it}
   run{
    val result=repo.mutate(method,target,payload);pendingPair=null
-   try{reload()}catch(e:Exception){if(e is CancellationException)throw e;note.value="Đã lưu • Chưa tải lại được"}
+   try{reload()}catch(e:Exception){if(e is CancellationException)throw e;note.value="Đã lưu • Chưa tải lại được";notice.value=note.value}
    done(result)
   }
  }
@@ -294,6 +296,8 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
  fun canEditRecords()=data.value?.text("role") in listOf("OWNER","EDITOR")
  /** Grid/cards/Kanban, group-by and Kanban field of the open view; null means the view has none saved (the screen then uses the device's choice). */
  var viewLayout:JsonObject?=null
+ /** One-shot messages the table screen shows as a snackbar (the status line only shows errors). */
+ val notice=MutableStateFlow<String?>(null)
  /** The layout without fields deleted or retyped since it was saved, which the server would reject. */
  private fun savableLayout():JsonObject?{
   val layout=viewLayout?:return null;val fields=data.value?.objects("fields").orEmpty()
@@ -305,8 +309,8 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
  fun setLayout(layout:JsonObject){
   viewLayout=layout
   val view=editableView();val body=savableLayout()?:return
-  // shortcut: a change made while another request runs stays local until "Lưu thay đổi chế độ xem", fine for one user tapping
-  if(view==null||!supports("viewLayout")||busy.value)return
+  if(view==null||!supports("viewLayout"))return
+  if(busy.value){whenIdle{setLayout(layout)};return}
   run{
    val saved=repo.mutate("PATCH","$path/views/${view.text("id")}",JsonObject().apply{add("layout",body);add("expectedVersion",view["version"]);addProperty("requestId",java.util.UUID.randomUUID().toString())})
    // Only the layout changed on the server, so keep unsaved filter/sort edits instead of resetting them on reload.
@@ -374,15 +378,20 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
    }
    val fields=header.map{name->meta.objects("fields").first{it.text("name").equals(name,true)}}
    var created=0
-   try{for(row in body){
-    val cells=JsonObject()
-    fields.forEachIndexed{col,field->com.threeddk.tasks.data.csvCell(field,row.getOrElse(col){""})?.let{cells.add(field.text("id"),it)}}
-    repo.mutate("POST","$path/records",JsonObject().apply{addProperty("requestId",java.util.UUID.randomUUID().toString());addProperty("expectedVersion",1);addProperty("expectedSchemaVersion",meta["schemaVersion"].asInt);add("cells",cells)});created++
-   }}catch(e:CancellationException){throw e}catch(e:Exception){
+   val rowsCells=body.map{row->JsonObject().also{cells->fields.forEachIndexed{col,field->com.threeddk.tasks.data.csvCell(field,row.getOrElse(col){""})?.let{cells.add(field.text("id"),it)}}}}
+   try{
+    if(supports("recordBatch"))for(chunk in com.threeddk.tasks.data.csvBatches(rowsCells)){
+     // One request per chunk counts as one write on the server, so big files stay under the per-minute write limit.
+     repo.mutate("POST","$path/records/batch",JsonObject().apply{addProperty("requestId",java.util.UUID.randomUUID().toString());addProperty("expectedSchemaVersion",meta["schemaVersion"].asInt);add("records",JsonArray().apply{chunk.forEach{c->add(JsonObject().apply{add("cells",c)})}})})
+     created+=chunk.size
+    }else for(cells in rowsCells){
+     repo.mutate("POST","$path/records",JsonObject().apply{addProperty("requestId",java.util.UUID.randomUUID().toString());addProperty("expectedVersion",1);addProperty("expectedSchemaVersion",meta["schemaVersion"].asInt);add("cells",cells)});created++
+    }
+   }catch(e:CancellationException){throw e}catch(e:Exception){
     // e.g. the 500-record limit: say exactly how far it got so a retry does not duplicate rows.
     runCatching{reload()};error.value="Đã nhập $created/${body.size} dòng rồi dừng: ${friendlyError(e)}";return@launch
    }
-   reload();note.value="Đã nhập ${body.size} dòng từ CSV"
+   reload();note.value="Đã nhập ${body.size} dòng từ CSV";notice.value=note.value
   }catch(e:CancellationException){throw e}catch(e:Exception){error.value=friendlyError(e)}finally{busy.value=false}}
  }
  fun draftLabels():Array<String>{

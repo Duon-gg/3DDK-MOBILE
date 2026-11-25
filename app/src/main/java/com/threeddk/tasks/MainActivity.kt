@@ -41,7 +41,7 @@ class MainActivity:AppCompatActivity(){
     updateNavigation()
     if(state=="READY"){
      if(nav.currentDestination?.id==R.id.auth)nav.navigate(R.id.workspaces,null,navOptions{popUpTo(R.id.auth){inclusive=true}})
-     openPending()
+     openPending();askNotificationPermission()
     }else if(nav.currentDestination?.id!=R.id.auth)nav.navigate(R.id.auth,null,navOptions{popUpTo(nav.graph.id){inclusive=true}})
    }}
    launch{vm.loading.collect{binding.progress.isVisible=it}}
@@ -53,8 +53,23 @@ class MainActivity:AppCompatActivity(){
   // Invite link opened while another screen is up: go back to home, which asks to join on resume.
   if(intent.data?.scheme=="threeddk"&&vm.session.value=="READY")nav.popBackStack(R.id.workspaces,false)
  }
- private fun receiveIntent(intent:Intent){intent.getStringExtra("taskId")?.let{if(runCatching{java.util.UUID.fromString(it)}.isSuccess)vm.pendingTaskId=it};intent.removeExtra("taskId")}
- private fun openPending(){if(vm.session.value=="READY"&&vm.pendingTaskId!=null){vm.pendingTaskId=null;vm.message.value="Thông báo này thuộc phiên bản công việc trước."}}
+ private var pendingRecord:Pair<String,String>?=null
+ private val notificationPermission=registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()){}
+ /** Android 13+ hides every push until the user allows it; ask once after sign-in, like most apps. */
+ private fun askNotificationPermission(){
+  if(android.os.Build.VERSION.SDK_INT<33||checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)==android.content.pm.PackageManager.PERMISSION_GRANTED)return
+  val prefs=getSharedPreferences("app",MODE_PRIVATE);if(prefs.getBoolean("askedNotifications",false))return
+  prefs.edit().putBoolean("askedNotifications",true).apply();notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+ }
+ private fun receiveIntent(intent:Intent){
+  val table=intent.getStringExtra("tableId");val record=intent.getStringExtra("recordId")
+  if(table!=null&&record!=null&&listOf(table,record).all{runCatching{java.util.UUID.fromString(it)}.isSuccess})pendingRecord=table to record
+  intent.removeExtra("tableId");intent.removeExtra("recordId")
+  intent.getStringExtra("taskId")?.let{if(runCatching{java.util.UUID.fromString(it)}.isSuccess)vm.pendingTaskId=it};intent.removeExtra("taskId")}
+ private fun openPending(){
+  // A tapped @mention push opens that record's comments, like Airtable's notification links.
+  pendingRecord?.takeIf{vm.session.value=="READY"}?.let{(table,record)->pendingRecord=null;nav.navigate(R.id.recordEditor,androidx.core.os.bundleOf("path" to "tables/$table","recordId" to record))}
+  if(vm.session.value=="READY"&&vm.pendingTaskId!=null){vm.pendingTaskId=null;vm.message.value="Thông báo này thuộc phiên bản công việc trước."}}
  override fun onSupportNavigateUp()=nav.navigateUp()||super.onSupportNavigateUp()
  /** Airtable-style chrome: toolbar and system-bar strips take a base's tile colour (bg to text); null restores defaults. */
  fun paintChrome(tile:Pair<Int,Int>?){

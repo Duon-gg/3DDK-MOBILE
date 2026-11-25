@@ -90,9 +90,10 @@ class DataTableFragment:Fragment(){
    render();requireActivity().invalidateOptionsMenu()
   };watch(vm.accessDenied){render();requireActivity().invalidateOptionsMenu()};watch(vm.drafts){requireActivity().invalidateOptionsMenu()};watch(vm.selectedViewId){b.search.setText(vm.queryConfig.text("search"));render()};watch(vm.hasMore){b.more.isVisible=it};watch(vm.capabilities){render();requireActivity().invalidateOptionsMenu()}
   watch(vm.busy){val usable=vm.data.value!=null&&!vm.accessDenied.value;b.refresh.isEnabled=!it;b.add.isEnabled=!it&&usable;b.more.isEnabled=!it&&usable;b.viewChoice.isEnabled=!it&&usable;b.filter.isEnabled=!it&&usable;b.sort.isEnabled=!it&&usable;b.columns.isEnabled=!it&&usable;dialog?.getButton(-1)?.isEnabled=!it;b.status.text=if(it)getString(R.string.p0_dang_tai_giu_du_lieu_da_hien_thi) else vm.error.value?:vm.note.value}
-  watch(vm.note){b.status.text=it};watch(vm.error){b.status.isVisible=it!=null;if(it!=null){b.status.text=it;dialog?.setMessage(it)}};vm.openTable(path,arguments?.getString("initialViewId"))
+  watch(vm.note){b.status.text=it};watch(vm.notice){if(it!=null){tell(it);vm.notice.value=null}};watch(vm.error){b.status.isVisible=it!=null;if(it!=null){b.status.text=it;dialog?.setMessage(it)}};vm.openTable(path,arguments?.getString("initialViewId"))
  }
  override fun onSaveInstanceState(outState:Bundle){outState.putBoolean("queryExpanded",binding?.queryActions?.isVisible==true);outState.putBoolean("searchExpanded",searchExpanded);super.onSaveInstanceState(outState)}
+ private fun tell(message:String){view?.let{com.google.android.material.snackbar.Snackbar.make(it,message,com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show()}}
  private fun updatePresentation(){val b=binding?:return;val ok=!vm.accessDenied.value;b.cards.isVisible=ok&&layoutMode=="CARDS";b.kanban.isVisible=ok&&layoutMode=="KANBAN";b.gridContainer.isVisible=ok&&layoutMode=="GRID";b.group.isVisible=layoutMode=="GRID"}
  private fun saveLayout(){
   prefs.edit().putString("$path/layout",layoutMode).putString("$path/group",groupFieldId).putString("$path/kanban",kanbanFieldId).apply()
@@ -292,7 +293,7 @@ class DataTableFragment:Fragment(){
   val items=conditions()
   dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(if(vm.queryConfig.getAsJsonObject("filter")?.text("op")=="or")R.string.p0_filter_or else R.string.p0_loc_thoa_tat_ca_dieu_kien)).setItems(items.map{fieldName(it.text("fieldId"))+" "+operatorLabel(requireContext(),it.text("operator"))+" "+(it.get("value")?.let{v->cellLabel(requireContext(),null,v,vm.data.value?.objects("members").orEmpty())}?:"")}.toTypedArray()){_,index->
    dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.p0_xoa_dieu_kien_nay)).setPositiveButton(getString(R.string.p0_xoa)){_,_->vm.removeCondition(index)}.setNegativeButton(getString(R.string.p0_huy),null).show()
-  }.setPositiveButton(getString(R.string.p0_them_dieu_kien)){_,_->if(items.size<10)chooseField(::chooseOperator) else binding?.status?.text=getString(R.string.p0_toi_da_10_dieu_kien_trong_giao_dien)}.setNeutralButton(getString(R.string.p0_xoa_tat_ca)){_,_->applyConditions(emptyList())}.setNegativeButton(getString(R.string.p0_dong),null).show()
+  }.setPositiveButton(getString(R.string.p0_them_dieu_kien)){_,_->if(items.size<10)chooseField(::chooseOperator) else tell(getString(R.string.p0_toi_da_10_dieu_kien_trong_giao_dien))}.setNeutralButton(getString(R.string.p0_xoa_tat_ca)){_,_->applyConditions(emptyList())}.setNegativeButton(getString(R.string.p0_dong),null).show()
  }
  private fun chooseField(done:(JsonObject)->Unit){
   val fields=vm.data.value?.objects("fields").orEmpty()
@@ -321,7 +322,7 @@ class DataTableFragment:Fragment(){
  private fun sorts(){
   val items=sortItems()
   dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.p0_sap_xep_o_trong_o_cuoi)).setItems(items.map{fieldName(it.text("fieldId"))+if(it.text("direction")=="desc")getString(R.string.p0_giam_dan) else getString(R.string.p0_tang_dan)}.toTypedArray()){_,index->vm.removeSort(index);render()}
-   .setPositiveButton(getString(R.string.p0_them_cot)){_,_->if(items.size<3)chooseField{field->dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(field.text("name")).setItems(arrayOf(getString(R.string.p0_tang_dan_2),getString(R.string.p0_giam_dan_2))){_,direction->vm.addSort(field.text("id"),direction==1);render()}.setNegativeButton(getString(R.string.p0_huy),null).show()} else binding?.status?.text=getString(R.string.p0_toi_da_3_cot_sap_xep)}
+   .setPositiveButton(getString(R.string.p0_them_cot)){_,_->if(items.size<3)chooseField{field->dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(field.text("name")).setItems(arrayOf(getString(R.string.p0_tang_dan_2),getString(R.string.p0_giam_dan_2))){_,direction->vm.addSort(field.text("id"),direction==1);render()}.setNegativeButton(getString(R.string.p0_huy),null).show()} else tell(getString(R.string.p0_toi_da_3_cot_sap_xep))}
    .setNeutralButton(getString(R.string.p0_xoa_tat_ca)){_,_->vm.queryTable(sort=JsonArray());render()}.setNegativeButton(getString(R.string.p0_dong),null).show()
  }
  private fun columnOrder(){
@@ -336,7 +337,7 @@ class DataTableFragment:Fragment(){
  private fun columns(){
   val fields=vm.data.value?.objects("fields").orEmpty();val selected=vm.queryConfig.getAsJsonArray("fieldIds")?.map{it.asString}.orEmpty();val checked=BooleanArray(fields.size){selected.isEmpty()||fields[it].text("id") in selected}
   val d=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.p0_cot_hien_thi)).setMultiChoiceItems(fields.map{it.text("name")}.toTypedArray(),checked){_,index,value->checked[index]=value}.setPositiveButton(getString(R.string.p0_ap_dung),null).setNeutralButton(R.string.column_order){_,_->columnOrder()}.setNegativeButton(getString(R.string.p0_huy),null).create();dialog=d
-  d.setOnShowListener{d.getButton(-1).setOnClickListener{if(checked.none{it}){binding?.status?.text=getString(R.string.p0_chon_it_nhat_mot_cot);return@setOnClickListener};vm.selectColumns(fields,checked);render();d.dismiss()}};d.show()
+  d.setOnShowListener{d.getButton(-1).setOnClickListener{if(checked.none{it}){android.widget.Toast.makeText(requireContext(),R.string.p0_chon_it_nhat_mot_cot,android.widget.Toast.LENGTH_SHORT).show();return@setOnClickListener};vm.selectColumns(fields,checked);render();d.dismiss()}};d.show()
  }
  private fun saveView(){
   val b=DialogInputBinding.inflate(layoutInflater);b.valueBox.hint=getString(R.string.p0_ten_che_do_xem);b.extraBox.isVisible=false

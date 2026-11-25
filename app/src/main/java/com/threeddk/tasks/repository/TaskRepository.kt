@@ -95,13 +95,15 @@ class TaskRepository(private val context:Context) {
   if(uid==null||!configured)return
   val installation=settings.getString("installation",null)?:UUID.randomUUID().toString().also{settings.edit().putString("installation",it).apply()}
   val token=FirebaseMessaging.getInstance().token.await()
-  mutate("PUT","devices/$installation",body("token" to token))
+  // Workspace @mention pushes; the v1 call only matters for accounts still on the old task screens.
+  workspaceApi.call("PUT","devices/$installation",body("token" to token))
+  runCatching{mutate("PUT","devices/$installation",body("token" to token))}
  }
  suspend fun logout()=mutex.withLock {
   val owner=uid?:return@withLock
   val installation=settings.getString("installation",null)
   // Rotate locally even offline; stale pushes contain no private task content.
-  if(installation!=null)runCatching{api.call("DELETE","devices/$installation",body())}
+  if(installation!=null){runCatching{workspaceApi.call("DELETE","devices/$installation",body())};runCatching{api.call("DELETE","devices/$installation",body())}}
   if(uid!=owner)return@withLock
   workspaces.clearSession(owner)
   if(uid==null){
