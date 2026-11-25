@@ -4,7 +4,7 @@
   "scripts": {
     "test": "node --test tests/*.test.mjs",
     "test:load:local": "node tests/p0-load.mjs",
-    "check:edge": "deno check --config supabase/functions/deno.json supabase/functions/api/index.ts supabase/functions/dispatch/index.ts",
+    "check:edge": "deno check --config supabase/functions/deno.json supabase/functions/api/index.ts supabase/functions/dispatch/index.ts supabase/functions/join/index.ts",
     "test:edge": "deno test --config supabase/functions/deno.json --allow-env supabase/functions/_shared/*_test.ts"
   },
   "devDependencies": { "@electric-sql/pglite": "0.3.14", "deno": "2.5.4" }

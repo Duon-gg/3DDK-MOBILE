@@ -3,3 +3,5 @@ project_id = "3ddk-tasks"
 verify_jwt = false
 [functions.dispatch]
 verify_jwt = false
+[functions.join]
+verify_jwt = false

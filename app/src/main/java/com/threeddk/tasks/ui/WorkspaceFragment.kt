@@ -71,7 +71,8 @@ class WorkspaceFragment:Fragment(){
   }
   profileImage()
   watch(account.rows){profileImage()}
-  b.homeInvitations.setOnClickListener{
+  b.pendingInvites.setOnClickListener{showPendingInvites()}
+  b.homeInvitations.setOnClickListener{if(vm.supports("notificationInbox")){showInbox();return@setOnClickListener}
    if(vm.supports("baseActions"))dialog=MaterialAlertDialogBuilder(requireContext()).setTitle("Lời mời").setItems(arrayOf("Lời mời không gian","Lời mời cơ sở dữ liệu")){_,which->
     if(which==0)findNavController().navigate(R.id.invitations) else baseInvitations()
    }.show() else findNavController().navigate(R.id.invitations)
@@ -194,7 +195,7 @@ class WorkspaceFragment:Fragment(){
    if(vm.supports("baseActions")){sharedBases();return}
    val shared=vm.sharedSpaces()
    val builder=MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.home_shared).setNegativeButton(R.string.p0_dong,null)
-   if(shared.isEmpty())builder.setMessage(R.string.home_shared_empty)
+   if(shared.isEmpty()){builder.setMessage(R.string.home_shared_empty);if(pendingInvites.isNotEmpty())builder.setPositiveButton(getString(R.string.home_pending_invites,pendingInvites.size)){_,_->showPendingInvites()}}
    else builder.setItems(shared.map{it.text("name")}.toTypedArray()){_,index->findNavController().navigate(R.id.workspaceBrowser,bundleOf("path" to "workspaces/"+shared[index].text("id")))}
    dialog=builder.show();return
   }
@@ -292,10 +293,94 @@ class WorkspaceFragment:Fragment(){
    val invite=items[index];dialog=MaterialAlertDialogBuilder(requireContext()).setTitle("Tham gia ${invite.text("name")}? ").setNegativeButton(R.string.p0_huy,null).setPositiveButton(R.string.p0_xac_nhan){_,_->vm.mutate("POST","base-invitations/${invite.text("id")}/accept",JsonObject()){result->if(binding!=null)findNavController().navigate(R.id.workspaceBrowser,bundleOf("path" to "bases/"+result.text("id")))}}.show()
   };dialog=builder.show()
  }}}
+ /** Pending workspace and base invites, shown on Home like Airtable instead of only behind the bell. */
+ private var pendingInvites:List<Pair<String,JsonObject>> = emptyList()
+ private var inbox:JsonObject?=null
+ private fun loadPendingInvites(){
+  if(path!="workspaces")return
+  vm.peek("invitations"){spaces->vm.peek("base-invitations"){bases->
+   val b=binding?:return@peek
+   pendingInvites=spaces?.objects("items").orEmpty().map{"workspace" to it}+bases?.objects("items").orEmpty().map{"base" to it}
+   b.pendingInvites.isVisible=pendingInvites.isNotEmpty()
+   b.pendingInvites.text=getString(R.string.home_pending_invites,pendingInvites.size)
+   vm.peek("me/notifications"){box->
+    if(binding!==b)return@peek
+    inbox=box
+    val count=pendingInvites.size+(box?.get("unread")?.asInt?:0)
+    b.homeInvitations.contentDescription=getString(R.string.home_invitations_count,count)
+    showInviteDot(count)
+   }
+  }}
+ }
+ /** Red dot with the count on the bell while space or base invites wait, like Airtable's notification badge. */
+ private var inviteBadge:com.google.android.material.badge.BadgeDrawable?=null
+ @androidx.annotation.OptIn(com.google.android.material.badge.ExperimentalBadgeUtils::class)
+ private fun showInviteDot(count:Int){
+  val bell=binding?.homeInvitations?:return
+  inviteBadge?.let{com.google.android.material.badge.BadgeUtils.detachBadgeDrawable(it,bell)};inviteBadge=null
+  if(count<=0)return
+  bell.post{
+   if(binding?.homeInvitations!==bell)return@post
+   inviteBadge=com.google.android.material.badge.BadgeDrawable.create(requireContext()).apply{number=count;maxCharacterCount=3;horizontalOffset=(10*resources.displayMetrics.density).toInt();verticalOffset=(10*resources.displayMetrics.density).toInt()}
+   com.google.android.material.badge.BadgeUtils.attachBadgeDrawable(inviteBadge!!,bell)
+  }
+ }
+ /** Airtable-style inbox behind the bell: pending invites first, then @mentions (unread ones marked with a red dot). */
+ private fun showInbox(){
+  val ctx=requireContext();val sheet=com.google.android.material.bottomsheet.BottomSheetDialog(ctx);val dp=resources.displayMetrics.density
+  val ink=com.google.android.material.color.MaterialColors.getColor(binding!!.root,com.google.android.material.R.attr.colorOnSurface)
+  val muted=com.google.android.material.color.MaterialColors.getColor(binding!!.root,com.google.android.material.R.attr.colorOnSurfaceVariant)
+  val list=android.widget.LinearLayout(ctx).apply{orientation=android.widget.LinearLayout.VERTICAL;setPadding(0,(8*dp).toInt(),0,(16*dp).toInt())}
+  fun heading(text:String)=android.widget.TextView(ctx).apply{this.text=text;textSize=18f;setTextColor(ink);setTypeface(typeface,android.graphics.Typeface.BOLD);setPadding((24*dp).toInt(),(12*dp).toInt(),(24*dp).toInt(),(8*dp).toInt());androidx.core.view.ViewCompat.setAccessibilityHeading(this,true)}
+  fun row(title:String,detail:String,unread:Boolean,action:()->Unit)=android.widget.TextView(ctx).apply{
+   text=android.text.SpannableStringBuilder(title).apply{setSpan(android.text.style.StyleSpan(if(unread)android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL),0,length,0);append('\n');val start=length;append(detail);setSpan(android.text.style.ForegroundColorSpan(muted),start,length,0)}
+   textSize=15f;setTextColor(ink);minHeight=(56*dp).toInt();setPadding((24*dp).toInt(),(10*dp).toInt(),(24*dp).toInt(),(10*dp).toInt())
+   if(unread){setCompoundDrawablesRelativeWithIntrinsicBounds(R.drawable.ic_unread_dot,0,0,0);compoundDrawablePadding=(12*dp).toInt()}
+   contentDescription=(if(unread)getString(R.string.inbox_unread)+". " else "")+title+". "+detail
+   setBackgroundResource(android.R.drawable.list_selector_background);setOnClickListener{sheet.dismiss();action()}
+  }
+  list.addView(heading(getString(R.string.inbox_title)))
+  pendingInvites.forEach{(kind,invite)->list.addView(row(getString(if(kind=="base")R.string.home_invite_base else R.string.home_invite_workspace,invite.text("name"),roleLabel(ctx,invite.text("role"))),getString(R.string.inbox_invite_hint),true){showPendingInvites(kind to invite)})}
+  val items=inbox?.objects("items").orEmpty()
+  items.forEach{n->
+   val time=runCatching{java.time.OffsetDateTime.parse(n.text("createdAt")).atZoneSameInstant(java.time.ZoneId.systemDefault()).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))}.getOrDefault("")
+   val unread=n.get("read")?.asBoolean==false
+   list.addView(row(n.text("title"),n.text("body")+" · "+time,unread){
+    if(unread)vm.peekPost("me/notifications/read",JsonObject().apply{add("ids",com.google.gson.JsonArray().apply{add(n.text("id"))})}){loadPendingInvites()}
+    // Opens the record where the user was mentioned; its comments are at the bottom.
+    findNavController().navigate(R.id.recordEditor,bundleOf("path" to "tables/"+n.text("tableId"),"recordId" to n.text("recordId")))
+   })
+  }
+  if(pendingInvites.isEmpty()&&items.isEmpty())list.addView(android.widget.TextView(ctx).apply{setText(R.string.inbox_empty);textSize=15f;setTextColor(muted);setPadding((24*dp).toInt(),(16*dp).toInt(),(24*dp).toInt(),(16*dp).toInt())})
+  if((inbox?.get("unread")?.asInt?:0)>0)list.addView(com.google.android.material.button.MaterialButton(ctx,null,com.google.android.material.R.attr.borderlessButtonStyle).apply{
+   setText(R.string.inbox_mark_all);setOnClickListener{sheet.dismiss();vm.peekPost("me/notifications/read",JsonObject().apply{addProperty("all",true)}){loadPendingInvites()}}
+  })
+  list.addView(com.google.android.material.button.MaterialButton(ctx,null,com.google.android.material.R.attr.borderlessButtonStyle).apply{
+   setText(R.string.inbox_all_invites);setOnClickListener{sheet.dismiss();findNavController().navigate(R.id.invitations)}
+  })
+  sheet.setContentView(android.widget.ScrollView(ctx).apply{addView(list)});sheet.show()
+  loadPendingInvites()
+ }
+ private fun showPendingInvites(only:Pair<String,JsonObject>?=null){
+  if(only!=null){openInvite(only);return}
+  if(pendingInvites.isEmpty()){loadPendingInvites();return}
+  val labels=pendingInvites.map{(kind,it)->getString(if(kind=="base")R.string.home_invite_base else R.string.home_invite_workspace,it.text("name"),roleLabel(requireContext(),it.text("role")))}
+  dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.home_pending_title).setNegativeButton(R.string.p0_dong,null)
+   .setItems(labels.toTypedArray()){_,index->openInvite(pendingInvites[index])}.show()
+ }
+ private fun openInvite(item:Pair<String,JsonObject>){
+    val (kind,invite)=item
+    if(kind=="workspace"){findNavController().navigate(R.id.invitations);return}
+    dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.collab_join_title,invite.text("name"))).setNegativeButton(R.string.p0_huy,null)
+     .setPositiveButton(R.string.collab_join){_,_->vm.mutate("POST","base-invitations/${invite.text("id")}/accept",JsonObject()){result->
+      loadPendingInvites()
+      if(binding!=null)findNavController().navigate(R.id.workspaceBrowser,bundleOf("path" to "bases/"+result.text("id").ifBlank{invite.text("baseId")}))
+     }}.show()
+ }
  private fun sharedBases(){vm.readResource("shared-bases"){data->if(binding!=null){
   val rows=vm.sharedSpaces().map{"workspaces/"+it.text("id") to it.text("name")}+data.objects("items").map{"bases/"+it.text("id") to it.text("name")}
   val builder=MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.home_shared).setNegativeButton(R.string.p0_dong,null)
-  if(rows.isEmpty())builder.setMessage(R.string.home_shared_empty) else builder.setItems(rows.map{it.second}.toTypedArray()){_,index->findNavController().navigate(R.id.workspaceBrowser,bundleOf("path" to rows[index].first))}
+  if(rows.isEmpty()){builder.setMessage(R.string.home_shared_empty);if(pendingInvites.isNotEmpty())builder.setPositiveButton(getString(R.string.home_pending_invites,pendingInvites.size)){_,_->showPendingInvites()}} else builder.setItems(rows.map{it.second}.toTypedArray()){_,index->findNavController().navigate(R.id.workspaceBrowser,bundleOf("path" to rows[index].first))}
   dialog=builder.show()
  }}}
  private fun create(){
@@ -445,6 +530,7 @@ class WorkspaceFragment:Fragment(){
  // A tapped threeddk://join/{token} link lands here (the home screen is the app's start destination).
  override fun onResume(){
   super.onResume()
+  loadPendingInvites()
   val intent=requireActivity().intent;val data=intent?.data?:return
   if(data.scheme!="threeddk"||data.host!="join")return
   intent.data=null
@@ -452,4 +538,4 @@ class WorkspaceFragment:Fragment(){
  }
  override fun onDestroyView(){baseSheet?.dismiss();baseSheet=null;dialog?.dismiss();dialog=null;binding?.list?.adapter=null;binding=null;super.onDestroyView()}
 }
-fun roleLabel(context:android.content.Context,role:String)=context.getString(when(role){"OWNER"->R.string.p0_workspace_owner;"EDITOR"->R.string.p0_co_the_chinh_sua;else->R.string.p0_chi_xem})
+fun roleLabel(context:android.content.Context,role:String)=context.getString(when(role){"OWNER"->R.string.p0_workspace_owner;"ADMIN"->R.string.role_admin;"EDITOR"->R.string.p0_co_the_chinh_sua;else->R.string.p0_chi_xem})

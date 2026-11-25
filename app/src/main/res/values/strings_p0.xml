@@ -94,12 +94,12 @@
  <string name="p0_them_cot_tuy_chinh">Thêm cột tùy chỉnh</string>
  <string name="p0_them">Thêm</string>
  <string name="p0_nhap_tu_1_den_30_lua_chon_moi">Nhập từ 1 đến 30 lựa chọn, mỗi lựa chọn tối đa 100 ký tự</string>
- <string name="p0_luu_tru_dong">Lưu trữ dòng</string>
+ <string name="p0_luu_tru_dong">Xoá dòng</string>
  <string name="p0_lich_su_thay_doi">Lịch sử thay đổi</string>
  <string name="p0_sao_chep_ban_nhap">Sao chép bản nháp</string>
- <string name="p0_luu_tru_dong_nay">Lưu trữ dòng này?</string>
- <string name="p0_dong_se_bien_mat_khoi_bang_nhap_tren">Dòng sẽ biến mất khỏi bảng. Nháp trên máy chỉ được xóa sau khi máy chủ xác nhận. Bản này chưa có thao tác khôi phục dòng.</string>
- <string name="p0_luu_tru">Lưu trữ</string>
+ <string name="p0_luu_tru_dong_nay">Xoá dòng này?</string>
+ <string name="p0_dong_se_bien_mat_khoi_bang_nhap_tren">Dòng sẽ biến mất khỏi bảng. Nháp trên máy chỉ được xóa sau khi máy chủ xác nhận. Có thể khôi phục trong Thùng rác dòng (menu ⋮ của bảng).</string>
+ <string name="p0_luu_tru">Xoá</string>
  <string name="p0_ban_nhap_3ddk">Bản nháp 3DDK</string>
  <string name="p0_da_sao_chep_nhap">Đã sao chép nháp</string>
  <string name="p0_chon_nguoi_phu_trach">Chọn người phụ trách</string>

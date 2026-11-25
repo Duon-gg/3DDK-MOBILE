@@ -47,6 +47,13 @@ Deno.test('v2 comment writes wake the dispatcher for @mention pushes; other v2 w
  await handler(request('/api/v2/tables/t/records/r/comments/c','PATCH','{"body":"hi"}'));assert(dispatch.length===2);
  await handler(request('/api/v2/tables/t/records/r/cells','PATCH','{}'));assert(dispatch.length===2);
 });
+Deno.test('a base invite hands its email to sendMail and hides it from the client',async()=>{
+ const mails:unknown[]=[];
+ const handler=createApiHandler({verifyToken:async()=>actor,rpc:async()=>({id:'i1',mail:{to:'a@b.vn',role:'EDITOR',base:'B',inviter:'D'}}),sendMail:m=>{mails.push(m);}});
+ const response=await handler(new Request('https://example.com/api/v2/bases/b1/invites',{method:'POST',headers:{Authorization:'Bearer x'},body:'{}'}));
+ const body=await response.json();
+ assert(body.id==='i1'&&!('mail' in body));assert(mails.length===1);
+});
 Deno.test('malformed, scalar, array, null and empty JSON are rejected before RPC',async()=>{
  const {handler,calls,request}=fixture();
  for(const body of ['{', 'null', '[]', '1', '"text"', '']) {

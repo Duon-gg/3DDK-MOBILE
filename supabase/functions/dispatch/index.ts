@@ -10,7 +10,7 @@ Deno.serve(async request=>{
   const key=await importPKCS8(account.private_key,'RS256');
   const assertion=await new SignJWT({scope:'https://www.googleapis.com/auth/firebase.messaging'}).setProtectedHeader({alg:'RS256'}).setIssuer(account.client_email).setAudience('https://oauth2.googleapis.com/token').setIssuedAt().setExpirationTime('1h').sign(key);
   const auth=await fetch('https://oauth2.googleapis.com/token',{method:'POST',body:new URLSearchParams({grant_type:'urn:ietf:params:oauth:grant-type:jwt-bearer',assertion}),signal:AbortSignal.timeout(10000)});
-  if(!auth.ok) throw new Error('FCM_AUTH_FAILED');
+  if(!auth.ok) throw new Error(`FCM_AUTH_FAILED ${auth.status}`);
   const {access_token}=await auth.json();
   const deadline=Date.now()+45000;let processed=0;
   // ponytail: one just-in-time lease per group; shard workers if group volume grows.
@@ -44,5 +44,9 @@ Deno.serve(async request=>{
    processed++;
   }
   return Response.json({processed});
- } catch { console.error('dispatch_failed');return Response.json({code:'DISPATCH_FAILED'},{status:500}); }
+ } catch(error) {
+  // The reason only (an RPC/SQL message or the FCM status), never tokens or secrets, so failures can be diagnosed.
+  console.error('dispatch_failed',error instanceof Error?error.message.slice(0,200):'unknown');
+  return Response.json({code:'DISPATCH_FAILED'},{status:500});
+ }
 });

@@ -19,8 +19,12 @@ import com.threeddk.tasks.model.objects
 import com.threeddk.tasks.model.text
 import com.threeddk.tasks.viewmodel.WorkspaceViewModel
 
-/** Link that opens the app on the join screen; also accepted when pasted into "Tham gia bằng link mời". */
-fun inviteLinkUrl(token:String)="threeddk://join/$token"
+/**
+ * Link to share. With https support it is a normal web link (opens the app through the "join" function, works in Zalo,
+ * Messenger and browsers); otherwise the app's own scheme. Both are accepted by "Tham gia bằng link mời".
+ */
+fun inviteLinkUrl(token:String,https:Boolean=false)=
+ if(https&&com.threeddk.tasks.BuildConfig.SUPABASE_URL.isNotBlank())com.threeddk.tasks.BuildConfig.SUPABASE_URL.trimEnd('/')+"/functions/v1/join/$token" else "threeddk://join/$token"
 /** Accepts a full link, a link inside shared text, or the bare 32-char token. */
 fun inviteToken(text:String)=Regex("""(?:join/)?([0-9a-f]{32})""").find(text.trim())?.groupValues?.get(1)
 
@@ -30,9 +34,11 @@ fun inviteToken(text:String)=Regex("""(?:join/)?([0-9a-f]{32})""").find(text.tri
  */
 fun Fragment.showCollaborators(vm:WorkspaceViewModel,base:String,baseName:String){
  val ctx=requireContext();val sheet=BottomSheetDialog(ctx);val b=DialogCollaboratorsBinding.inflate(layoutInflater)
+ // Links never hand out admin rights; email invites and promotions can (owner or admin only).
  val roles=listOf("EDITOR","VIEWER");val roleNames=roles.map{roleLabel(ctx,it)}
+ val memberRoles=(if(vm.supports("adminRole"))listOf("ADMIN") else emptyList())+roles;val memberRoleNames=memberRoles.map{roleLabel(ctx,it)}
  b.subtitle.text=baseName
- b.emailRole.adapter=ArrayAdapter(ctx,android.R.layout.simple_spinner_dropdown_item,roleNames)
+ b.emailRole.adapter=ArrayAdapter(ctx,android.R.layout.simple_spinner_dropdown_item,memberRoleNames);b.emailRole.setSelection(memberRoles.indexOf("EDITOR"))
  b.linkRole.adapter=ArrayAdapter(ctx,android.R.layout.simple_spinner_dropdown_item,roleNames)
  var sharing=JsonObject()
  var load:()->Unit={}
@@ -58,11 +64,12 @@ fun Fragment.showCollaborators(vm:WorkspaceViewModel,base:String,baseName:String
    row.detail.text=member?.text("email")?:ctx.getString(R.string.collab_from_workspace)
    row.role.text=roleLabel(ctx,p.text("role"))
    // Only access granted on this base can be changed here; workspace access is managed on the workspace.
-   if(member!=null&&p.text("role")!="OWNER"){
+   if(member!=null&&p.text("role")!="OWNER"&&p.text("uid")!=runCatching{vm.myUid()}.getOrNull()){
     row.root.contentDescription=ctx.getString(R.string.collab_change_role,name)
     row.root.setOnClickListener{
-     MaterialAlertDialogBuilder(ctx).setTitle(name).setItems(arrayOf(roleNames[0],roleNames[1],ctx.getString(R.string.collab_remove))){_,which->
-      vm.versionedMutation(if(which==2)"DELETE" else "PATCH","$base/members/${p.text("uid")}",sharing,JsonObject().apply{if(which<2)addProperty("role",roles[which])}){load()}
+     MaterialAlertDialogBuilder(ctx).setTitle(name).setItems((memberRoleNames+ctx.getString(R.string.collab_remove)).toTypedArray()){_,which->
+      val remove=which==memberRoles.size
+      vm.versionedMutation(if(remove)"DELETE" else "PATCH","$base/members/${p.text("uid")}",sharing,JsonObject().apply{if(!remove)addProperty("role",memberRoles[which])}){load()}
      }.setNegativeButton(R.string.p0_huy,null).show()
     }
    }else row.root.isClickable=false
@@ -86,13 +93,13 @@ fun Fragment.showCollaborators(vm:WorkspaceViewModel,base:String,baseName:String
   val email=b.email.text.toString().trim()
   if(!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()){b.emailBox.error=ctx.getString(R.string.p0_email_chua_hop_le);return@setOnClickListener}
   b.emailBox.error=null
-  vm.inviteMember(base,email,b.emailRole.selectedItemPosition==0,sharing){b.email.setText("");load()}
+  vm.inviteMember(base,email,memberRoles[b.emailRole.selectedItemPosition],sharing){b.email.setText("");load()}
  }
  b.linkCreate.setOnClickListener{vm.setInviteLink(base,roles[b.linkRole.selectedItemPosition]){load()}}
  b.linkOff.setOnClickListener{vm.setInviteLink(base,null){load()}}
  b.linkShare.setOnClickListener{
   val token=sharing.get("inviteLink")?.takeIf{it.isJsonObject}?.asJsonObject?.text("token")?:return@setOnClickListener
-  val text=ctx.getString(R.string.collab_share_text,baseName,inviteLinkUrl(token))
+  val text=ctx.getString(R.string.collab_share_text,baseName,inviteLinkUrl(token,vm.supports("httpsInviteLinks")))
   startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,text),ctx.getString(R.string.collab_link_share)))
  }
  b.linkActions.isSingleSelection=false

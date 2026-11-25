@@ -2,8 +2,10 @@ export function env(name:string):string { const value=Deno.env.get(name); if(!va
 export async function rpc(name:string, body:Record<string,unknown>={}) {
  const key=env('SUPABASE_SERVICE_ROLE_KEY');
  const response=await fetch(`${env('SUPABASE_URL')}/rest/v1/rpc/${name}`,{method:'POST',headers:{apikey:key,Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(15000)});
- const data=await response.json();
- if(!response.ok) throw Object.assign(new Error(data.message??'SERVER_ERROR'),{sqlCode:data.code});
+ // A void SQL function (enqueue_reminders, finish_*) answers 204 with no body.
+ const text=await response.text();
+ const data=text?JSON.parse(text):null;
+ if(!response.ok) throw Object.assign(new Error(data?.message??'SERVER_ERROR'),{sqlCode:data?.code});
  return data;
 }
 export function failure(error:unknown,requestId=crypto.randomUUID()):Response {

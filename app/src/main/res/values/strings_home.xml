@@ -4,6 +4,17 @@
  <string name="home_open_data">Mở dữ liệu</string>
  <string name="home_go_workspace">Đi tới không gian làm việc</string>
  <string name="home_shared">Được chia sẻ</string>
+ <string name="home_pending_invites">Bạn có %1$d lời mời đang chờ · Xem</string>
+ <string name="home_pending_title">Lời mời đang chờ</string>
+ <string name="home_invitations_count">Lời mời tham gia (%1$d đang chờ)</string>
+ <string name="home_invite_base">Cơ sở dữ liệu: %1$s · %2$s</string>
+ <string name="home_invite_workspace">Không gian: %1$s · %2$s</string>
+ <string name="inbox_title">Thông báo</string>
+ <string name="inbox_unread">Chưa đọc</string>
+ <string name="inbox_invite_hint">Lời mời đang chờ · chạm để tham gia</string>
+ <string name="inbox_empty">Chưa có thông báo nào.</string>
+ <string name="inbox_mark_all">Đánh dấu tất cả là đã đọc</string>
+ <string name="inbox_all_invites">Xem tất cả lời mời không gian</string>
  <string name="home_shared_empty">Bạn chưa tham gia không gian nào do người khác quản lý.</string>
  <string name="home_just_opened">Vừa mở dữ liệu</string>
 </resources>
