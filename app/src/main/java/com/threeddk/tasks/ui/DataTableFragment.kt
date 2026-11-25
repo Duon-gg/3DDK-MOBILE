@@ -92,7 +92,23 @@ class DataTableFragment:Fragment(){
  }
  override fun onSaveInstanceState(outState:Bundle){outState.putBoolean("queryExpanded",binding?.queryActions?.isVisible==true);outState.putBoolean("searchExpanded",searchExpanded);super.onSaveInstanceState(outState)}
  private fun updatePresentation(){val b=binding?:return;val ok=!vm.accessDenied.value;b.cards.isVisible=ok&&layoutMode=="CARDS";b.kanban.isVisible=ok&&layoutMode=="KANBAN";b.gridContainer.isVisible=ok&&layoutMode=="GRID";b.group.isVisible=layoutMode=="GRID"}
- private fun saveLayout(){prefs.edit().putString("$path/layout",layoutMode).putString("$path/group",groupFieldId).putString("$path/kanban",kanbanFieldId).apply()}
+ private fun saveLayout(){
+  prefs.edit().putString("$path/layout",layoutMode).putString("$path/group",groupFieldId).putString("$path/kanban",kanbanFieldId).apply()
+  // Drop ids of fields deleted since they were chosen; the server rejects unknown fields.
+  val ids=vm.data.value?.objects("fields").orEmpty().map{it.text("id")}
+  val layout=JsonObject().apply{addProperty("type",layoutMode);addProperty("groupFieldId",groupFieldId?.takeIf{it in ids});addProperty("kanbanFieldId",kanbanFieldId?.takeIf{it in ids})}
+  appliedLayout=layout;vm.setLayout(layout)
+ }
+ /** The open view's saved layout wins over this device's last choice, so everyone sees the same view. */
+ private var appliedLayout:JsonObject?=null
+ private fun applyViewLayout(){
+  val layout=vm.viewLayout
+  if(layout===appliedLayout)return
+  appliedLayout=layout
+  if(layout==null){layoutMode=prefs.getString("$path/layout","GRID")!!;groupFieldId=prefs.getString("$path/group",null);kanbanFieldId=prefs.getString("$path/kanban",null)}
+  else{layoutMode=layout.text("type").takeIf{it in listOf("GRID","CARDS","KANBAN")}?:"GRID";groupFieldId=layout.text("groupFieldId").ifBlank{null};kanbanFieldId=layout.text("kanbanFieldId").ifBlank{null}}
+  requireActivity().invalidateOptionsMenu()
+ }
  private fun selectFields()=vm.data.value?.objects("fields").orEmpty().filter{it.text("type")=="SELECT"}
  private fun chooseLayout(){
   val modes=listOf("GRID","CARDS","KANBAN");val labels=listOf(R.string.layout_grid,R.string.layout_cards,R.string.layout_kanban).map(::getString)
@@ -131,6 +147,7 @@ class DataTableFragment:Fragment(){
  private fun updateSearchLabel(){val b=binding?:return;b.searchToggle.isSelected=!b.search.text.isNullOrBlank();b.searchToggle.contentDescription=getString(R.string.mobile_search_query,b.search.text.toString())}
  private fun render(){
   val b=binding?:return;val data=vm.data.value.takeUnless{vm.accessDenied.value}
+  applyViewLayout()
   val usable=data?.has("schemaVersion")==true&&!vm.accessDenied.value
   b.search.isEnabled=usable;b.searchToggle.isEnabled=usable;b.filter.isEnabled=usable&&!vm.busy.value;b.sort.isEnabled=usable&&!vm.busy.value;b.columns.isEnabled=usable&&!vm.busy.value
   b.add.isVisible=data?.text("role") in listOf("OWNER","EDITOR")&&!vm.accessDenied.value

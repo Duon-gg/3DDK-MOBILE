@@ -151,6 +151,7 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
   if(!supports("pagedRecords"))throw ApiException("CLIENT_UPGRADE_REQUIRED")
   val meta=repo.metadata(path)
   val next=refreshedViewQuery(queryConfig,meta,selectedViewId.value)
+  if(queryConfig.get("viewVersion")!=next.get("viewVersion"))viewLayout=meta.objects("views").firstOrNull{it.text("id")==selectedViewId.value}?.get("layout")?.takeIf{it.isJsonObject}?.asJsonObject
   viewResetNotice=selectedViewId.value!=null&&queryConfig.get("viewVersion")!=next.get("viewVersion")
   if(selectedViewId.value!=null&&!next.has("viewId"))selectedViewId.value=null
   if(viewResetNotice)note.value="Chế độ xem đã đổi • Đã nhận bộ lọc, sắp xếp và cột mới; các điều chỉnh chưa lưu đã được bỏ"
@@ -191,8 +192,9 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
   run{repo.removeDraft(taskId)}
  }
  fun selectView(id:String?){
-  selectedViewId.value=id
   val view=data.value?.objects("views")?.firstOrNull{it.text("id")==id}
+  viewLayout=view?.get("layout")?.takeIf{it.isJsonObject}?.asJsonObject
+  selectedViewId.value=id
   queryConfig=JsonObject().apply{
    addProperty("limit",50)
    data.value?.get("schemaVersion")?.let{add("expectedSchemaVersion",it)}
@@ -205,6 +207,7 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
    addProperty("name",name);addProperty("visibility",visibility);addProperty("type","GRID")
    add("filter",queryConfig["filter"]?:JsonObject().apply{addProperty("op","and");add("conditions",JsonArray())})
    listOf("sort","fieldIds","fieldOrder").forEach{add(it,queryConfig[it]?:JsonArray())}
+   if(supports("viewLayout"))viewLayout?.let{add("layout",it.deepCopy())}
   }
   mutate("POST","$path/views",body){result->selectView(result.text("id"));done()}
  }
@@ -289,6 +292,21 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
   })
  }
  fun canEditRecords()=data.value?.text("role") in listOf("OWNER","EDITOR")
+ /** Grid/cards/Kanban, group-by and Kanban field of the open view; null means the view has none saved (the screen then uses the device's choice). */
+ var viewLayout:JsonObject?=null
+ /** Like Airtable, a layout change is saved on the view at once when this user may edit it; otherwise it stays a local change. */
+ fun setLayout(layout:JsonObject){
+  viewLayout=layout
+  val view=editableView()
+  // shortcut: a change made while another request runs stays local until "Lưu thay đổi chế độ xem", fine for one user tapping
+  if(view==null||!supports("viewLayout")||busy.value)return
+  run{
+   val saved=repo.mutate("PATCH","$path/views/${view.text("id")}",JsonObject().apply{add("layout",layout.deepCopy());add("expectedVersion",view["version"]);addProperty("requestId",java.util.UUID.randomUUID().toString())})
+   // Only the layout changed on the server, so keep unsaved filter/sort edits instead of resetting them on reload.
+   queryConfig=queryConfig.deepCopy().apply{add("viewVersion",saved["version"])}
+   reload()
+  }
+ }
  /** Column order is part of the view config (fieldOrder), so "Lưu thay đổi chế độ xem" persists it like Airtable. */
  fun setFieldOrder(ids:List<String>){queryConfig=queryConfig.deepCopy().apply{add("fieldOrder",Gson().toJsonTree(ids))}}
  fun selectColumns(fields:List<JsonObject>,checked:BooleanArray){
@@ -297,7 +315,7 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
  }
  fun updateSelectedView(){
   val view=editableView()?:return
-  val payload=JsonObject().apply{listOf("filter","sort","fieldIds","fieldOrder").forEach{key->queryConfig.get(key)?.let{add(key,it.deepCopy())}};addProperty("expectedVersion",view.get("version")?.asInt?:1)}
+  val payload=JsonObject().apply{listOf("filter","sort","fieldIds","fieldOrder").forEach{key->queryConfig.get(key)?.let{add(key,it.deepCopy())}};if(supports("viewLayout"))viewLayout?.let{add("layout",it.deepCopy())};addProperty("expectedVersion",view.get("version")?.asInt?:1)}
   mutate("PATCH","$path/views/${view.text("id")}",payload){selectView(view.text("id"))}
  }
  fun fieldTypes()=listOf("TEXT","NUMBER","DATE","CHECKBOX","SELECT")+(if(supports("userFields"))listOf("USER") else emptyList())+if(supports("richFields"))listOf("LONG_TEXT","MULTI_SELECT","URL","EMAIL","PHONE") else emptyList()
