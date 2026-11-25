@@ -52,11 +52,12 @@ class RowAdapter(private val click:(String)->Unit):ListAdapter<Row,RowAdapter.Ho
    Glide.with(avatar).clear(avatar)
    val hue=(row.id.hashCode().toUInt()%360u).toFloat()
    monogram.text=if(row.vividMonogram)row.title.trim().take(2) else row.title.trim().take(2).uppercase()
-   monogram.setTextColor(if(row.vividMonogram)android.graphics.Color.WHITE else android.graphics.Color.HSVToColor(floatArrayOf(hue,.78f,.34f)))
+   val tile=tileFor(row.id)
+   monogram.setTextColor(if(row.vividMonogram)tile.second else android.graphics.Color.HSVToColor(floatArrayOf(hue,.78f,.34f)))
    monogram.background=GradientDrawable().apply{
     cornerRadius=(if(row.vividMonogram)11 else 8)*density
-    setColor(android.graphics.Color.HSVToColor(if(row.vividMonogram)floatArrayOf(hue,.80f,.72f) else floatArrayOf(hue,.17f,.96f)))
-    if(row.vividMonogram)setStroke(density.toInt(),android.graphics.Color.HSVToColor(floatArrayOf(hue,.80f,.60f)))
+    setColor(if(row.vividMonogram)tile.first else android.graphics.Color.HSVToColor(floatArrayOf(hue,.17f,.96f)))
+    if(row.vividMonogram)setStroke(density.toInt(),0x26000000)
    }
   }
   root.setOnClickListener{click(row.id)}
@@ -73,5 +74,13 @@ class RowAdapter(private val click:(String)->Unit):ListAdapter<Row,RowAdapter.Ho
   holder.binding.root.setOnClickListener(null)
   holder.binding.star.isVisible=false
   super.onViewRecycled(holder)
+ }
+ companion object{
+  private const val DARK=0xFF1D1F25.toInt()
+  private const val LIGHT=0xFFFFFFFF.toInt()
+  // Fixed bright tiles with contrast-picked text (dark on light fills, white on dark fills).
+  /** Same tile a base shows on the home list, so its table screen can reuse the colour. */
+  fun tileFor(id:String)=TILES[(id.hashCode().toUInt()%TILES.size.toUInt()).toInt()]
+  private val TILES=listOf(0xFF5FD9D4.toInt() to DARK,0xFFF5BE3F.toInt() to DARK,0xFF7134E6.toInt() to LIGHT,0xFF3A8A2A.toInt() to LIGHT,0xFF63C5F8.toInt() to DARK,0xFF8E4558.toInt() to LIGHT,0xFF2D7FF9.toInt() to LIGHT,0xFFE8577E.toInt() to LIGHT)
  }
 }

@@ -27,9 +27,6 @@ class MainActivity:AppCompatActivity(){
   binding.bottomNav.setupWithNavController(nav)
   nav.addOnDestinationChangedListener{_,destination,args->
    updateNavigation()
-   binding.toolbar.setBackgroundColor(getColor(
-    if(destination.id==R.id.dataTable) R.color.mobile_table_toolbar else R.color.mobile_surface
-   ))
    if(destination.id==R.id.recordEditor){
     val id=args?.getString("recordId") ?: "new"
     if(id=="new"||id.startsWith("new/"))supportActionBar?.setTitle(R.string.p0_them_dong)
@@ -52,10 +49,26 @@ class MainActivity:AppCompatActivity(){
   }}
  }
  private fun updateNavigation(){binding.toolbar.isVisible=nav.currentDestination?.id !in setOf(R.id.workspaces,R.id.auth);binding.bottomNav.isVisible=vm.session.value=="READY"&&nav.currentDestination?.id ==R.id.invitations}
- override fun onNewIntent(intent:Intent){super.onNewIntent(intent);setIntent(intent);receiveIntent(intent);openPending()}
+ override fun onNewIntent(intent:Intent){super.onNewIntent(intent);setIntent(intent);receiveIntent(intent);openPending()
+  // Invite link opened while another screen is up: go back to home, which asks to join on resume.
+  if(intent.data?.scheme=="threeddk"&&vm.session.value=="READY")nav.popBackStack(R.id.workspaces,false)
+ }
  private fun receiveIntent(intent:Intent){intent.getStringExtra("taskId")?.let{if(runCatching{java.util.UUID.fromString(it)}.isSuccess)vm.pendingTaskId=it};intent.removeExtra("taskId")}
  private fun openPending(){if(vm.session.value=="READY"&&vm.pendingTaskId!=null){vm.pendingTaskId=null;vm.message.value="Thông báo này thuộc phiên bản công việc trước."}}
  override fun onSupportNavigateUp()=nav.navigateUp()||super.onSupportNavigateUp()
+ /** Airtable-style chrome: toolbar and system-bar strips take a base's tile colour (bg to text); null restores defaults. */
+ fun paintChrome(tile:Pair<Int,Int>?){
+  val toolbar=binding.toolbar
+  val ink=tile?.second?:com.google.android.material.color.MaterialColors.getColor(toolbar,com.google.android.material.R.attr.colorOnSurface)
+  val surface=com.google.android.material.color.MaterialColors.getColor(toolbar,com.google.android.material.R.attr.colorSurface)
+  toolbar.setBackgroundColor(tile?.first?:android.graphics.Color.TRANSPARENT);toolbar.setTitleTextColor(ink)
+  // The up arrow is a DrawerArrowDrawable that paints with its own colour and ignores tint; NavController swaps it after view creation.
+  val paintIcons=Runnable{(toolbar.navigationIcon as? androidx.appcompat.graphics.drawable.DrawerArrowDrawable)?.color=ink;toolbar.overflowIcon?.setTint(ink);Unit}
+  paintIcons.run();toolbar.post(paintIcons)
+  @Suppress("DEPRECATION") window.statusBarColor=tile?.first?:surface
+  binding.root.setBackgroundColor(tile?.first?:surface);binding.navHost.setBackgroundColor(surface)
+  WindowCompat.getInsetsController(window,window.decorView).apply{val light=tile==null||tile.second!=android.graphics.Color.WHITE;isAppearanceLightStatusBars=light;isAppearanceLightNavigationBars=light}
+ }
  override fun onResume(){super.onResume();if(vm.session.value=="READY")vm.refresh()}
 }
 

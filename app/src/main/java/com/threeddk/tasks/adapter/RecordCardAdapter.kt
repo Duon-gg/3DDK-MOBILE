@@ -13,7 +13,8 @@ import com.google.gson.JsonObject
 import com.threeddk.tasks.databinding.ItemRecordCardBinding
 import com.threeddk.tasks.databinding.ItemRecordCardFieldBinding
 
-class RecordCardAdapter(private val click: (String) -> Unit) :
+/** [onBindCard] lets a host add extra behaviour to each card (Kanban uses it for drag and the move action). */
+class RecordCardAdapter(private val click: (String) -> Unit, private val onBindCard: ((android.view.View, String) -> Unit)? = null) :
     ListAdapter<JsonObject, RecordCardAdapter.Holder>(object : DiffUtil.ItemCallback<JsonObject>() {
         override fun areItemsTheSame(old: JsonObject, new: JsonObject) = old.text("id") == new.text("id")
         override fun areContentsTheSame(old: JsonObject, new: JsonObject) = old == new
@@ -53,11 +54,13 @@ class RecordCardAdapter(private val click: (String) -> Unit) :
         binding.root.contentDescription = shown.joinToString(", ") { "${label(it)}: ${value(it)}" }
             .ifBlank { empty }
         binding.root.setOnClickListener { click(row.text("id")) }
+        onBindCard?.invoke(binding.root, row.text("id"))
     }
 
     override fun onViewRecycled(holder: Holder) {
         holder.binding.apply {
             root.setOnClickListener(null)
+            root.setOnLongClickListener(null)
             root.contentDescription = null
             title.text = ""
             fields.removeAllViews()

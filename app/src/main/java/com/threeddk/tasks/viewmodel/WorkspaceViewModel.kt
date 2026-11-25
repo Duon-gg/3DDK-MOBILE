@@ -151,6 +151,7 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
   if(!supports("pagedRecords"))throw ApiException("CLIENT_UPGRADE_REQUIRED")
   val meta=repo.metadata(path)
   val next=refreshedViewQuery(queryConfig,meta,selectedViewId.value)
+  if(queryConfig.get("viewVersion")!=next.get("viewVersion"))viewLayout=meta.objects("views").firstOrNull{it.text("id")==selectedViewId.value}?.get("layout")?.takeIf{it.isJsonObject}?.asJsonObject
   viewResetNotice=selectedViewId.value!=null&&queryConfig.get("viewVersion")!=next.get("viewVersion")
   if(selectedViewId.value!=null&&!next.has("viewId"))selectedViewId.value=null
   if(viewResetNotice)note.value="Chế độ xem đã đổi • Đã nhận bộ lọc, sắp xếp và cột mới; các điều chỉnh chưa lưu đã được bỏ"
@@ -163,7 +164,8 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
    queryConfig=queryConfig.deepCopy().apply{addProperty("expectedSchemaVersion",meta["schemaVersion"].asInt)}
    observe()
   }
-  repo.query(path,queryConfig,append)
+  // Schema changed elsewhere (another device or member): fetch fresh metadata once instead of staying stuck.
+  try{repo.query(path,queryConfig,append)}catch(e:ApiException){if(e.code!="SCHEMA_CHANGED"||append)throw e;reload()}
  }
  fun refresh(){if(busy.value)return;run{reload();if(!viewResetNotice)note.value=if(tableMode)"Đã cập nhật • Chỉ các trang đã tải có sẵn khi mất mạng" else "Đã cập nhật • Có thể xem khi mất mạng"}}
  private fun run(block:suspend()->Unit){val serial=++requestSerial;requestJob=viewModelScope.launch{
@@ -190,8 +192,9 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
   run{repo.removeDraft(taskId)}
  }
  fun selectView(id:String?){
-  selectedViewId.value=id
   val view=data.value?.objects("views")?.firstOrNull{it.text("id")==id}
+  viewLayout=view?.get("layout")?.takeIf{it.isJsonObject}?.asJsonObject
+  selectedViewId.value=id
   queryConfig=JsonObject().apply{
    addProperty("limit",50)
    data.value?.get("schemaVersion")?.let{add("expectedSchemaVersion",it)}
@@ -204,6 +207,7 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
    addProperty("name",name);addProperty("visibility",visibility);addProperty("type","GRID")
    add("filter",queryConfig["filter"]?:JsonObject().apply{addProperty("op","and");add("conditions",JsonArray())})
    listOf("sort","fieldIds","fieldOrder").forEach{add(it,queryConfig[it]?:JsonArray())}
+   if(supports("viewLayout"))savableLayout()?.let{add("layout",it)}
   }
   mutate("POST","$path/views",body){result->selectView(result.text("id"));done()}
  }
@@ -234,6 +238,14 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
  fun sharedSpaces()=data.value?.objects("items").orEmpty().filter{it.text("role") in listOf("EDITOR","VIEWER")}
  fun moveTargets(workspaces:JsonObject,base:JsonObject)=workspaces.objects("items").filter{it.text("role")=="OWNER"&&it.text("id")!=base.text("workspaceId")}
  fun baseForActions(id:String,workspace:String)=recentBases.value.firstOrNull{it.path==id}?:data.value?.objects("bases")?.firstOrNull{"bases/"+it.text("id")==id}?.let{WorkspaceRepository.RecentBase(id,it.text("name"),0,workspaceId=workspace.substringAfter('/'))}
+ /** Base invite link: role creates a new link (replacing the old one), null turns it off. */
+ fun setInviteLink(base:String,role:String?,done:(JsonObject)->Unit){
+  mutate(if(role==null)"DELETE" else "POST","$base/invite-link",JsonObject().apply{role?.let{addProperty("role",it)}},done)
+ }
+ fun previewInvite(token:String,done:(JsonObject)->Unit)=readNow("invite-links/$token",done)
+ /** Read without the busy gate, so a sheet can refresh right after its own mutation; errors go to [error]. */
+ fun readNow(resource:String,done:(JsonObject)->Unit){viewModelScope.launch{try{done(repo.refresh(resource))}catch(e:CancellationException){throw e}catch(e:Exception){error.value=friendlyError(e)}}}
+ fun acceptInvite(token:String,done:(JsonObject)->Unit)=mutate("POST","invite-links/$token/accept",JsonObject(),done)
  fun versionedMutation(method:String,target:String,base:JsonObject,extra:JsonObject=JsonObject(),done:(JsonObject)->Unit={}){
   mutate(method,target,extra.deepCopy().apply{add("expectedVersion",base["version"])},done)
  }
@@ -271,23 +283,96 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
   val next=sorts().filter{it.text("fieldId")!=fieldId}+JsonObject().apply{addProperty("fieldId",fieldId);addProperty("direction",if(descending)"desc" else "asc")}
   if(next.size<=3)queryTable(sort=Gson().toJsonTree(next).asJsonArray)
  }
+ /** Kanban drop: set one SELECT cell; the board only changes after the server accepts it, so a failure leaves the card where it was. */
+ fun moveCard(recordId:String,fieldId:String,value:String?){
+  val record=data.value?.objects("records")?.firstOrNull{it.text("id")==recordId}?:return
+  mutate("PATCH","$path/records/$recordId/cells",JsonObject().apply{
+   addProperty("expectedVersion",record.get("version")?.asInt?:1);addProperty("expectedSchemaVersion",data.value?.get("schemaVersion")?.asInt?:1)
+   add("changes",JsonObject().apply{if(value==null)add(fieldId,JsonNull.INSTANCE) else addProperty(fieldId,value)})
+  })
+ }
+ fun canEditRecords()=data.value?.text("role") in listOf("OWNER","EDITOR")
+ /** Grid/cards/Kanban, group-by and Kanban field of the open view; null means the view has none saved (the screen then uses the device's choice). */
+ var viewLayout:JsonObject?=null
+ /** The layout without fields deleted or retyped since it was saved, which the server would reject. */
+ private fun savableLayout():JsonObject?{
+  val layout=viewLayout?:return null;val fields=data.value?.objects("fields").orEmpty()
+  val group=layout.text("groupFieldId").takeIf{id->fields.any{it.text("id")==id}}
+  val stack=layout.text("kanbanFieldId").takeIf{id->fields.any{it.text("id")==id&&it.text("type")=="SELECT"}}
+  return JsonObject().apply{addProperty("type",layout.text("type").takeUnless{it=="KANBAN"&&stack==null}?:"GRID");addProperty("groupFieldId",group);addProperty("kanbanFieldId",stack)}
+ }
+ /** Like Airtable, a layout change is saved on the view at once when this user may edit it; otherwise it stays a local change. */
+ fun setLayout(layout:JsonObject){
+  viewLayout=layout
+  val view=editableView();val body=savableLayout()?:return
+  // shortcut: a change made while another request runs stays local until "Lưu thay đổi chế độ xem", fine for one user tapping
+  if(view==null||!supports("viewLayout")||busy.value)return
+  run{
+   val saved=repo.mutate("PATCH","$path/views/${view.text("id")}",JsonObject().apply{add("layout",body);add("expectedVersion",view["version"]);addProperty("requestId",java.util.UUID.randomUUID().toString())})
+   // Only the layout changed on the server, so keep unsaved filter/sort edits instead of resetting them on reload.
+   queryConfig=queryConfig.deepCopy().apply{add("viewVersion",saved["version"])}
+   reload()
+  }
+ }
+ /** Column order is part of the view config (fieldOrder), so "Lưu thay đổi chế độ xem" persists it like Airtable. */
+ fun setFieldOrder(ids:List<String>){queryConfig=queryConfig.deepCopy().apply{add("fieldOrder",Gson().toJsonTree(ids))}}
  fun selectColumns(fields:List<JsonObject>,checked:BooleanArray){
   if(checked.none{it})return
   queryTable(fieldIds=Gson().toJsonTree(fields.filterIndexed{i,_->checked.getOrElse(i){false}}.map{it.text("id")}).asJsonArray)
  }
  fun updateSelectedView(){
   val view=editableView()?:return
-  val payload=JsonObject().apply{listOf("filter","sort","fieldIds","fieldOrder").forEach{key->queryConfig.get(key)?.let{add(key,it.deepCopy())}};addProperty("expectedVersion",view.get("version")?.asInt?:1)}
+  val payload=JsonObject().apply{listOf("filter","sort","fieldIds","fieldOrder").forEach{key->queryConfig.get(key)?.let{add(key,it.deepCopy())}};if(supports("viewLayout"))savableLayout()?.let{add("layout",it)};addProperty("expectedVersion",view.get("version")?.asInt?:1)}
   mutate("PATCH","$path/views/${view.text("id")}",payload){selectView(view.text("id"))}
  }
- fun fieldTypes()=listOf("TEXT","NUMBER","DATE","CHECKBOX","SELECT")+if(supports("userFields"))listOf("USER") else emptyList()
- fun createField(name:String,type:String,rawOptions:String,done:()->Unit):Int?{
+ fun fieldTypes()=listOf("TEXT","NUMBER","DATE","CHECKBOX","SELECT")+(if(supports("userFields"))listOf("USER") else emptyList())+if(supports("richFields"))listOf("LONG_TEXT","MULTI_SELECT","URL","EMAIL","PHONE") else emptyList()
+ fun createField(name:String,type:String,rawOptions:String,position:Int?=null,created:(String)->Unit={},done:()->Unit):Int?{
   if(name.trim().length !in 1..100)return R.string.p0_nhap_ten_tu_1_den_100_ky_tu
   val options=rawOptions.split(',').map{it.trim()}.filter{it.isNotEmpty()}.distinct()
-  if(type=="SELECT"&&(options.isEmpty()||options.size>30||options.any{it.length>100}))return R.string.p0_nhap_tu_1_den_30_lua_chon_moi
+  if(type in listOf("SELECT","MULTI_SELECT")&&(options.isEmpty()||options.size>30||options.any{it.length>100}))return R.string.p0_nhap_tu_1_den_30_lua_chon_moi
   if(type !in fieldTypes())return R.string.p0_nhap_ten_tu_1_den_100_ky_tu
-  mutate("POST","$path/fields",JsonObject().apply{addProperty("name",name.trim());addProperty("type",type);add("options",Gson().toJsonTree(options));addProperty("expectedSchemaVersion",data.value?.get("schemaVersion")?.asInt?:1)}){done()}
+  mutate("POST","$path/fields",JsonObject().apply{addProperty("name",name.trim());addProperty("type",type);add("options",Gson().toJsonTree(options));addProperty("expectedSchemaVersion",data.value?.get("schemaVersion")?.asInt?:1);if(position!=null&&supports("fieldInsert"))addProperty("position",position)}){done();created(it.text("id"))}
   return null
+ }
+ fun canEditFields()=data.value?.text("role")=="OWNER"&&supports("fieldEdit")
+ /** Same checks as createField; PATCH rolls back server-side if existing cells don't fit the new type/options. */
+ fun updateField(field:JsonObject,name:String,type:String,rawOptions:String,done:()->Unit):Int?{
+  if(name.trim().length !in 1..100)return R.string.p0_nhap_ten_tu_1_den_100_ky_tu
+  val options=rawOptions.split(',').map{it.trim()}.filter{it.isNotEmpty()}.distinct()
+  if(type in listOf("SELECT","MULTI_SELECT")&&(options.isEmpty()||options.size>30||options.any{it.length>100}))return R.string.p0_nhap_tu_1_den_30_lua_chon_moi
+  mutate("PATCH","$path/fields/${field.text("id")}",JsonObject().apply{addProperty("name",name.trim());addProperty("type",type);add("options",Gson().toJsonTree(options));addProperty("expectedSchemaVersion",data.value?.get("schemaVersion")?.asInt?:1)}){done()}
+  return null
+ }
+ fun deleteField(field:JsonObject)=mutate("DELETE","$path/fields/${field.text("id")}",JsonObject().apply{addProperty("expectedSchemaVersion",data.value?.get("schemaVersion")?.asInt?:1)})
+ fun duplicateField(field:JsonObject){
+  val names=data.value?.objects("fields").orEmpty().map{it.text("name").lowercase()}.toSet()
+  val name=generateSequence(1){it+1}.map{if(it==1)"${field.text("name")} (bản sao)" else "${field.text("name")} (bản sao $it)"}.first{it.lowercase() !in names}.take(100)
+  createField(name,field.text("type"),field.getAsJsonArray("options")?.joinToString(","){it.asString}.orEmpty()){}
+ }
+ /** Imports CSV rows into this table: matches headers to fields by name, creates missing fields, then one record per row. */
+ fun importCsv(text:String){
+  val rows=com.threeddk.tasks.data.parseCsv(text)
+  if(rows.size<2||rows.size>501){error.value="File CSV cần dòng tiêu đề và từ 1 đến 500 dòng dữ liệu";return}
+  val header=rows[0].map{it.trim()};val body=rows.drop(1)
+  if(header.any{it.length !in 1..100}){error.value="Tên cột trong CSV phải từ 1 đến 100 ký tự";return}
+  // Own job: run{} shares requestJob, which the table's re-query on resume cancels.
+  viewModelScope.launch{try{
+   busy.value=true;error.value=null
+   var meta=repo.metadata(path)
+   for((col,name) in header.withIndex()){
+    if(meta.objects("fields").any{it.text("name").equals(name,true)})continue
+    val (type,options)=com.threeddk.tasks.data.inferFieldType(body.map{it.getOrElse(col){""}})
+    repo.mutate("POST","$path/fields",JsonObject().apply{addProperty("requestId",java.util.UUID.randomUUID().toString());addProperty("name",name);addProperty("type",type);add("options",Gson().toJsonTree(options));addProperty("expectedSchemaVersion",meta["schemaVersion"].asInt)})
+    meta=repo.metadata(path)
+   }
+   val fields=header.map{name->meta.objects("fields").first{it.text("name").equals(name,true)}}
+   for(row in body){
+    val cells=JsonObject()
+    fields.forEachIndexed{col,field->com.threeddk.tasks.data.csvCell(field,row.getOrElse(col){""})?.let{cells.add(field.text("id"),it)}}
+    repo.mutate("POST","$path/records",JsonObject().apply{addProperty("requestId",java.util.UUID.randomUUID().toString());addProperty("expectedVersion",1);addProperty("expectedSchemaVersion",meta["schemaVersion"].asInt);add("cells",cells)})
+   }
+   reload();note.value="Đã nhập ${body.size} dòng từ CSV"
+  }catch(e:CancellationException){throw e}catch(e:Exception){error.value=friendlyError(e)}finally{busy.value=false}}
  }
  fun draftLabels():Array<String>{
   val firstField=data.value?.objects("fields")?.firstOrNull()?.text("id")

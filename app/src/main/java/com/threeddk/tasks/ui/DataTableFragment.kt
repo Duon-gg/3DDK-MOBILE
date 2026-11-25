@@ -1,6 +1,7 @@
 package com.threeddk.tasks.ui
 import com.threeddk.tasks.adapter.GridAdapter
 import com.threeddk.tasks.adapter.gridCell
+import com.threeddk.tasks.adapter.fieldTypeIcon
 import com.threeddk.tasks.model.objects
 import com.threeddk.tasks.model.text
 import com.threeddk.tasks.viewmodel.WorkspaceViewModel
@@ -42,11 +43,23 @@ class DataTableFragment:Fragment(){
  private var dateDialog:DatePickerDialog?=null
  private lateinit var adapter:GridAdapter
  private lateinit var cardAdapter:RecordCardAdapter
- private var showCards=false
+ private lateinit var kanbanAdapter:com.threeddk.tasks.adapter.KanbanAdapter
+ // Layout, group-by and Kanban stack field are remembered per table on this device.
+ private val prefs get()=requireContext().getSharedPreferences("table_layout",android.content.Context.MODE_PRIVATE)
+ private var layoutMode="GRID"
+ private val showCards get()=layoutMode=="CARDS"
+ private var groupFieldId:String?=null
+ private var kanbanFieldId:String?=null
  private var searchExpanded=false
+ private val pickCsv=registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()){uri->
+  if(uri==null)return@registerForActivityResult
+  val text=runCatching{requireContext().contentResolver.openInputStream(uri)!!.use{it.readBytes().take(2_000_000).toByteArray().toString(Charsets.UTF_8)}}.getOrNull()
+  if(text==null)com.google.android.material.snackbar.Snackbar.make(requireView(),R.string.import_csv_unreadable,com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show() else vm.importCsv(text)
+ }
  override fun onCreateView(i:LayoutInflater,c:ViewGroup?,s:Bundle?)=FragmentDataTableBinding.inflate(i,c,false).also{binding=it}.root
  override fun onViewCreated(v:View,s:Bundle?){
   val b=binding!!
+  if(basePath.isNotBlank())(requireActivity() as com.threeddk.tasks.MainActivity).paintChrome(com.threeddk.tasks.adapter.RowAdapter.tileFor(basePath))
   if(basePath.isNotBlank())vm.baseTitle(basePath,baseName){name->
    if(name.isNotBlank()&&binding===b&&findNavController().currentDestination?.id==R.id.dataTable){
     (requireActivity() as androidx.appcompat.app.AppCompatActivity).supportActionBar?.title=name
@@ -54,7 +67,10 @@ class DataTableFragment:Fragment(){
   }
   adapter=GridAdapter(::edit);b.grid.layoutManager=LinearLayoutManager(requireContext());b.grid.adapter=adapter
   cardAdapter=RecordCardAdapter(::edit);b.cards.layoutManager=LinearLayoutManager(requireContext());b.cards.adapter=cardAdapter
-  showCards=s?.getBoolean("showCards",showCards)?:showCards;searchExpanded=s?.getBoolean("searchExpanded",searchExpanded)?:searchExpanded
+  kanbanAdapter=com.threeddk.tasks.adapter.KanbanAdapter(::edit,::moveCard,::chooseCardColumn);b.kanban.layoutManager=LinearLayoutManager(requireContext(),LinearLayoutManager.HORIZONTAL,false);b.kanban.adapter=kanbanAdapter
+  layoutMode=prefs.getString("$path/layout","GRID")!!;groupFieldId=prefs.getString("$path/group",null);kanbanFieldId=prefs.getString("$path/kanban",null)
+  b.group.setOnClickListener{chooseGroup()}
+  searchExpanded=s?.getBoolean("searchExpanded",searchExpanded)?:searchExpanded
   b.searchBox.isVisible=searchExpanded
   b.searchToggle.setOnClickListener{setSearchExpanded(!b.searchBox.isVisible)}
   b.queryActions.isVisible=s?.getBoolean("queryExpanded")==true
@@ -70,12 +86,57 @@ class DataTableFragment:Fragment(){
   watch(vm.data){data->
    if(data!=null&&!vm.accessDenied.value&&!remembered){remembered=true;vm.rememberTable(path,basePath)}
    render();requireActivity().invalidateOptionsMenu()
-  };watch(vm.accessDenied){render();requireActivity().invalidateOptionsMenu()};watch(vm.drafts){requireActivity().invalidateOptionsMenu()};watch(vm.selectedViewId){b.search.setText(vm.queryConfig.text("search"));render()};watch(vm.hasMore){b.more.isVisible=it}
+  };watch(vm.accessDenied){render();requireActivity().invalidateOptionsMenu()};watch(vm.drafts){requireActivity().invalidateOptionsMenu()};watch(vm.selectedViewId){b.search.setText(vm.queryConfig.text("search"));render()};watch(vm.hasMore){b.more.isVisible=it};watch(vm.capabilities){render();requireActivity().invalidateOptionsMenu()}
   watch(vm.busy){val usable=vm.data.value!=null&&!vm.accessDenied.value;b.refresh.isEnabled=!it;b.add.isEnabled=!it&&usable;b.more.isEnabled=!it&&usable;b.viewChoice.isEnabled=!it&&usable;b.filter.isEnabled=!it&&usable;b.sort.isEnabled=!it&&usable;b.columns.isEnabled=!it&&usable;dialog?.getButton(-1)?.isEnabled=!it;b.status.text=if(it)getString(R.string.p0_dang_tai_giu_du_lieu_da_hien_thi) else vm.error.value?:vm.note.value}
-  watch(vm.note){b.status.text=it};watch(vm.error){if(it!=null){b.status.text=it;dialog?.setMessage(it)}};vm.openTable(path,arguments?.getString("initialViewId"))
+  watch(vm.note){b.status.text=it};watch(vm.error){b.status.isVisible=it!=null;if(it!=null){b.status.text=it;dialog?.setMessage(it)}};vm.openTable(path,arguments?.getString("initialViewId"))
  }
- override fun onSaveInstanceState(outState:Bundle){outState.putBoolean("queryExpanded",binding?.queryActions?.isVisible==true);outState.putBoolean("showCards",showCards);outState.putBoolean("searchExpanded",searchExpanded);super.onSaveInstanceState(outState)}
- private fun updatePresentation(){val b=binding?:return;b.cards.isVisible=showCards&&!vm.accessDenied.value;b.gridContainer.isVisible=!showCards&&!vm.accessDenied.value}
+ override fun onSaveInstanceState(outState:Bundle){outState.putBoolean("queryExpanded",binding?.queryActions?.isVisible==true);outState.putBoolean("searchExpanded",searchExpanded);super.onSaveInstanceState(outState)}
+ private fun updatePresentation(){val b=binding?:return;val ok=!vm.accessDenied.value;b.cards.isVisible=ok&&layoutMode=="CARDS";b.kanban.isVisible=ok&&layoutMode=="KANBAN";b.gridContainer.isVisible=ok&&layoutMode=="GRID";b.group.isVisible=layoutMode=="GRID"}
+ private fun saveLayout(){
+  prefs.edit().putString("$path/layout",layoutMode).putString("$path/group",groupFieldId).putString("$path/kanban",kanbanFieldId).apply()
+  val layout=JsonObject().apply{addProperty("type",layoutMode);addProperty("groupFieldId",groupFieldId);addProperty("kanbanFieldId",kanbanFieldId)}
+  appliedLayout=layout;vm.setLayout(layout)
+ }
+ /** The open view's saved layout wins over this device's last choice, so everyone sees the same view. */
+ private var appliedLayout:JsonObject?=null
+ private fun applyViewLayout(){
+  val layout=vm.viewLayout
+  if(layout===appliedLayout)return
+  appliedLayout=layout
+  if(layout==null){layoutMode=prefs.getString("$path/layout","GRID")!!;groupFieldId=prefs.getString("$path/group",null);kanbanFieldId=prefs.getString("$path/kanban",null)}
+  else{layoutMode=layout.text("type").takeIf{it in listOf("GRID","CARDS","KANBAN")}?:"GRID";groupFieldId=layout.text("groupFieldId").ifBlank{null};kanbanFieldId=layout.text("kanbanFieldId").ifBlank{null}}
+  requireActivity().invalidateOptionsMenu()
+ }
+ private fun selectFields()=vm.data.value?.objects("fields").orEmpty().filter{it.text("type")=="SELECT"}
+ private fun chooseLayout(){
+  val modes=listOf("GRID","CARDS","KANBAN");val labels=listOf(R.string.layout_grid,R.string.layout_cards,R.string.layout_kanban).map(::getString)
+  dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.layout_choose).setSingleChoiceItems(labels.toTypedArray(),modes.indexOf(layoutMode)){d,i->
+   d.dismiss()
+   if(modes[i]!="KANBAN"){layoutMode=modes[i];saveLayout();render();requireActivity().invalidateOptionsMenu();return@setSingleChoiceItems}
+   val stacks=selectFields()
+   if(stacks.isEmpty()){binding?.status?.apply{isVisible=true;setText(R.string.kanban_need_select)};return@setSingleChoiceItems}
+   fun use(field:JsonObject){layoutMode="KANBAN";kanbanFieldId=field.text("id");saveLayout();render();requireActivity().invalidateOptionsMenu()}
+   if(stacks.size==1)use(stacks[0]) else dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.kanban_stack_by).setItems(stacks.map{it.text("name")}.toTypedArray()){_,j->use(stacks[j])}.setNegativeButton(R.string.p0_huy,null).show()
+  }.setNegativeButton(R.string.p0_huy,null).show()
+ }
+ private fun moveCard(recordId:String,value:String?){kanbanFieldId?.let{vm.moveCard(recordId,it,value)}}
+ /** Non-drag path (screen readers, or anyone who prefers a list): pick the target column. */
+ private fun chooseCardColumn(recordId:String){
+  val columns=kanbanAdapter.columns;val current=columns.indexOfFirst{c->c.second.any{it.text("id")==recordId}}
+  val title=columns.getOrNull(current)?.second?.firstOrNull{it.text("id")==recordId}?.let{r->vm.data.value?.objects("fields")?.firstOrNull()?.let{f->r.getAsJsonObject("cells")?.get(f.text("id"))?.takeUnless{it.isJsonNull}?.asString}}.orEmpty()
+  val labels=columns.map{it.first?:getString(R.string.p0_cell_empty)}
+  dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.kanban_move_to,title)).setSingleChoiceItems(labels.toTypedArray(),current){d,i->
+   d.dismiss();if(i!=current)moveCard(recordId,columns[i].first)
+  }.setNegativeButton(R.string.p0_huy,null).show()
+ }
+ private fun chooseGroup(){
+  val fields=vm.data.value?.objects("fields").orEmpty()
+  val labels=listOf(getString(R.string.group_none))+fields.map{it.text("name")}
+  val current=fields.indexOfFirst{it.text("id")==groupFieldId}+1
+  dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.group_by).setSingleChoiceItems(labels.toTypedArray(),current){d,i->
+   groupFieldId=fields.getOrNull(i-1)?.text("id");saveLayout();d.dismiss();render()
+  }.setNegativeButton(R.string.p0_huy,null).show()
+ }
  private fun setSearchExpanded(expanded:Boolean){
   val b=binding?:return;searchExpanded=expanded;b.searchBox.isVisible=expanded
   val keyboard=androidx.core.view.ViewCompat.getWindowInsetsController(b.search)
@@ -84,6 +145,7 @@ class DataTableFragment:Fragment(){
  private fun updateSearchLabel(){val b=binding?:return;b.searchToggle.isSelected=!b.search.text.isNullOrBlank();b.searchToggle.contentDescription=getString(R.string.mobile_search_query,b.search.text.toString())}
  private fun render(){
   val b=binding?:return;val data=vm.data.value.takeUnless{vm.accessDenied.value}
+  applyViewLayout()
   val usable=data?.has("schemaVersion")==true&&!vm.accessDenied.value
   b.search.isEnabled=usable;b.searchToggle.isEnabled=usable;b.filter.isEnabled=usable&&!vm.busy.value;b.sort.isEnabled=usable&&!vm.busy.value;b.columns.isEnabled=usable&&!vm.busy.value
   b.add.isVisible=data?.text("role") in listOf("OWNER","EDITOR")&&!vm.accessDenied.value
@@ -99,14 +161,27 @@ class DataTableFragment:Fragment(){
   val gridFields=shown.filter{it!=primary}
   adapter.members=data.objects("members")
   cardAdapter.members=adapter.members
-  val signature=shown.toString()+primary.toString()+adapter.members.toString()
-  if(schema!=signature||b.header.childCount==0){schema=signature;b.header.removeAllViews();gridFields.forEach{b.header.addView(gridCell(requireContext(),it.text("name"),it.text("type"),true))};adapter.fields=gridFields;adapter.primary=primary;cardAdapter.fields=shown;adapter.notifyDataSetChanged();cardAdapter.notifyDataSetChanged()}
-  val records=data.objects("records");adapter.submitList(records);cardAdapter.submitList(records);b.empty.isVisible=records.isEmpty()
+  val signature=shown.toString()+primary.toString()+adapter.members.toString()+vm.canEditFields()
+  if(schema!=signature||b.header.childCount==0){schema=signature;b.header.removeAllViews();gridFields.forEach{f->b.header.addView(gridCell(requireContext(),f.text("name"),f.text("type"),true).apply{if(vm.canEditFields()){isClickable=true;setBackgroundResource(android.R.drawable.list_selector_background);contentDescription=getString(R.string.field_menu_description,f.text("name"));setOnClickListener{fieldMenu(f)}}})};adapter.fields=gridFields;adapter.primary=primary;cardAdapter.fields=shown;adapter.notifyDataSetChanged();cardAdapter.notifyDataSetChanged()}
+  val records=data.objects("records");cardAdapter.submitList(records);b.empty.isVisible=records.isEmpty()
+  val groupField=fields.firstOrNull{it.text("id")==groupFieldId}
+  b.group.text=getString(R.string.group_count,if(groupField==null)0 else 1)
+  adapter.submitList(if(groupField==null)records else com.threeddk.tasks.viewmodel.groupRows(records,groupField).flatMap{(value,rows)->
+   listOf(JsonObject().apply{addProperty("group",getString(R.string.group_header,if(value==null)getString(R.string.p0_cell_empty) else cellLabel(requireContext(),groupField,value,adapter.members),rows.size))})+rows})
+  b.summary.removeAllViews()
+  gridFields.forEachIndexed{i,f->
+   val s=com.threeddk.tasks.viewmodel.columnSummary(records,f)
+   val text=when(s.kind){"checked"->getString(R.string.summary_checked,s.value.toInt());"sum"->getString(R.string.summary_sum,s.value);else->getString(R.string.summary_filled,s.value.toInt())}
+   b.summary.addView(gridCell(requireContext(),if(i==0)getString(R.string.summary_count,records.size)+" · "+text else text,f.text("type"),header=true,icon=false))
+  }
+  val stack=fields.firstOrNull{it.text("id")==kanbanFieldId&&it.text("type")=="SELECT"}
+  if(layoutMode=="KANBAN"&&stack==null){layoutMode="GRID";updatePresentation()}
+  if(stack!=null){kanbanAdapter.editable=vm.canEditRecords();kanbanAdapter.fields=shown;kanbanAdapter.members=adapter.members;kanbanAdapter.columns=com.threeddk.tasks.viewmodel.kanbanColumns(records,stack);kanbanAdapter.notifyDataSetChanged()}
   val filtered=b.search.text?.isNotBlank()==true||conditions().isNotEmpty()
   b.empty.text=if(data.get("queryCached")?.asBoolean!=true)getString(R.string.p0_query_not_cached) else if(filtered)getString(R.string.p0_khong_co_dong_phu_hop_thu_doi_tim) else getString(R.string.p0_chua_co_dong_trong_du_lieu_da_tai)
   b.filter.text=getString(R.string.p0_filter_count,conditions().size);b.sort.text=getString(R.string.p0_sort_count,sortItems().size)
   val selectedView=data.objects("views").firstOrNull{it.text("id")==vm.selectedViewId.value}
-  val viewName=selectedView?.text("name")?:getString(R.string.p0_tat_ca_chua_luu_che_do_xem)
+  val viewName=selectedView?.text("name")?:getString(when(layoutMode){"CARDS"->R.string.layout_cards;"KANBAN"->R.string.layout_kanban;else->R.string.layout_grid})
   b.viewChoice.text=if(vm.supports("savedViews")) "${data.text("name")} / $viewName" else data.text("name")
   b.viewChoice.isVisible=true
  }
@@ -178,7 +253,7 @@ class DataTableFragment:Fragment(){
  }
  private fun edit(id:String){
   if(vm.accessDenied.value)return
-  val rows=if(showCards)cardAdapter.currentList else adapter.currentList
+  val rows=if(layoutMode=="GRID")adapter.currentList.filter{!it.has("group")} else if(layoutMode=="KANBAN")kanbanAdapter.columns.flatMap{it.second} else cardAdapter.currentList
   val ids=if(id=="new")emptyArray() else rows.map{it.text("id")}.toTypedArray()
   findNavController().navigate(R.id.recordEditor,bundleOf("path" to path,"recordId" to id,"rowIds" to ids))
  }
@@ -187,12 +262,14 @@ class DataTableFragment:Fragment(){
    val starred=vm.recentBases.value.any{it.path==basePath&&it.starred}
    menu.add(0,R.id.toggle_table_star,1,getString(if(starred)R.string.home_unstar else R.string.home_star))
   }
-  menu.add(0,R.id.display_mode,0,getString(if(showCards)R.string.mobile_show_grid else R.string.mobile_show_cards)).setIcon(if(showCards)R.drawable.ic_table else R.drawable.ic_cards).setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+  menu.add(0,R.id.display_mode,0,getString(R.string.layout_choose)).setIcon(if(layoutMode=="GRID")R.drawable.ic_table else R.drawable.ic_cards).setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+  if(basePath.isNotBlank()&&vm.data.value?.text("role")=="OWNER"&&vm.supports("inviteLinks"))menu.add(0,15,0,getString(R.string.collab_title)).setIcon(R.drawable.ic_person_add).setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+  if(basePath.isNotBlank())listOfNotNull(menu.findItem(R.id.display_mode),menu.findItem(15)).forEach{it.icon?.mutate()?.setTint(com.threeddk.tasks.adapter.RowAdapter.tileFor(basePath).second)}
   if(vm.supports("savedViews")){menu.add(0,11,0,getString(R.string.p0_luu_thanh_che_do_xem_moi));if(editableView()!=null)menu.add(0,12,1,getString(R.string.p0_luu_thay_doi_che_do_xem))}
-  if(vm.data.value?.text("role")=="OWNER")menu.add(0,10,2,getString(R.string.p0_them_cot))
+  if(vm.data.value?.text("role")=="OWNER"){menu.add(0,10,2,getString(R.string.p0_them_cot));menu.add(0,14,2,getString(R.string.import_csv))}
   if(vm.drafts.value.isNotEmpty())menu.add(0,13,3,getString(R.string.p0_draft_count,vm.drafts.value.size))
  }
- override fun onOptionsItemSelected(item:MenuItem):Boolean{when(item.itemId){R.id.display_mode->{showCards=!showCards;updatePresentation();requireActivity().invalidateOptionsMenu()};R.id.toggle_table_star->if(!vm.accessDenied.value)vm.toggleBaseStar(basePath);10->addField();11->saveView();12->updateView();13->drafts();else->return super.onOptionsItemSelected(item)};return true}
+ override fun onOptionsItemSelected(item:MenuItem):Boolean{when(item.itemId){R.id.display_mode->chooseLayout();R.id.toggle_table_star->if(!vm.accessDenied.value)vm.toggleBaseStar(basePath);10->addField();11->saveView();12->updateView();13->drafts();15->showCollaborators(vm,basePath,(requireActivity() as androidx.appcompat.app.AppCompatActivity).supportActionBar?.title?.toString()?:baseName);14->pickCsv.launch(arrayOf("text/*","application/csv","application/vnd.ms-excel"));else->return super.onOptionsItemSelected(item)};return true}
  private fun drafts(){
   val items=vm.drafts.value;val labels=vm.draftLabels()
   dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.p0_ban_nhap_chua_gui_len_bang)).setItems(labels){_,index->
@@ -229,8 +306,8 @@ class DataTableFragment:Fragment(){
  }
  private fun filterValue(field:JsonObject,done:(JsonElement)->Unit){
   val members=vm.data.value?.objects("members").orEmpty()
-  val values=when(field.text("type")){"SELECT"->field.getAsJsonArray("options")?.map{it.asString}.orEmpty();"USER"->members.map{it.text("uid")};"CHECKBOX"->listOf("true","false");else->emptyList()}
-  if(field.text("type") in listOf("SELECT","USER","CHECKBOX")){
+  val values=when(field.text("type")){"SELECT","MULTI_SELECT"->field.getAsJsonArray("options")?.map{it.asString}.orEmpty();"USER"->members.map{it.text("uid")};"CHECKBOX"->listOf("true","false");else->emptyList()}
+  if(field.text("type") in listOf("SELECT","MULTI_SELECT","USER","CHECKBOX")){
    dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.p0_value_of_field,field.text("name"))).setItems(values.map{cellLabel(requireContext(),field,JsonPrimitive(it),members)}.toTypedArray()){_,index->done(if(field.text("type")=="CHECKBOX")JsonPrimitive(values[index].toBoolean()) else JsonPrimitive(values[index]))}.setNegativeButton(getString(R.string.p0_huy),null).show();return
   }
   if(field.text("type")=="DATE"){val day=LocalDate.now();dateDialog=DatePickerDialog(requireContext(),{_,year,month,date->done(JsonPrimitive(LocalDate.of(year,month+1,date).toString()))},day.year,day.monthValue-1,day.dayOfMonth).also{it.show()};return}
@@ -245,9 +322,18 @@ class DataTableFragment:Fragment(){
    .setPositiveButton(getString(R.string.p0_them_cot)){_,_->if(items.size<3)chooseField{field->dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(field.text("name")).setItems(arrayOf(getString(R.string.p0_tang_dan_2),getString(R.string.p0_giam_dan_2))){_,direction->vm.addSort(field.text("id"),direction==1);render()}.setNegativeButton(getString(R.string.p0_huy),null).show()} else binding?.status?.text=getString(R.string.p0_toi_da_3_cot_sap_xep)}
    .setNeutralButton(getString(R.string.p0_xoa_tat_ca)){_,_->vm.queryTable(sort=JsonArray());render()}.setNegativeButton(getString(R.string.p0_dong),null).show()
  }
+ private fun columnOrder(){
+  val fields=vm.data.value?.objects("fields").orEmpty();val order=vm.queryConfig.getAsJsonArray("fieldOrder")?.map{it.asString}.orEmpty()+fields.map{it.text("id")}
+  val sorted=order.distinct().mapNotNull{id->fields.firstOrNull{it.text("id")==id}}
+  val list=RecyclerView(requireContext()).apply{layoutManager=LinearLayoutManager(requireContext())}
+  val reorder=com.threeddk.tasks.adapter.ColumnOrderAdapter(sorted).also{it.attach(list)}
+  dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.column_order).setMessage(R.string.column_order_hint).setView(list)
+   .setPositiveButton(R.string.p0_ap_dung){_,_->vm.setFieldOrder(reorder.order.map{it.text("id")});schema="";render()}
+   .setNegativeButton(R.string.p0_huy,null).show()
+ }
  private fun columns(){
   val fields=vm.data.value?.objects("fields").orEmpty();val selected=vm.queryConfig.getAsJsonArray("fieldIds")?.map{it.asString}.orEmpty();val checked=BooleanArray(fields.size){selected.isEmpty()||fields[it].text("id") in selected}
-  val d=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.p0_cot_hien_thi)).setMultiChoiceItems(fields.map{it.text("name")}.toTypedArray(),checked){_,index,value->checked[index]=value}.setPositiveButton(getString(R.string.p0_ap_dung),null).setNegativeButton(getString(R.string.p0_huy),null).create();dialog=d
+  val d=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.p0_cot_hien_thi)).setMultiChoiceItems(fields.map{it.text("name")}.toTypedArray(),checked){_,index,value->checked[index]=value}.setPositiveButton(getString(R.string.p0_ap_dung),null).setNeutralButton(R.string.column_order){_,_->columnOrder()}.setNegativeButton(getString(R.string.p0_huy),null).create();dialog=d
   d.setOnShowListener{d.getButton(-1).setOnClickListener{if(checked.none{it}){binding?.status?.text=getString(R.string.p0_chon_it_nhat_mot_cot);return@setOnClickListener};vm.selectColumns(fields,checked);render();d.dismiss()}};d.show()
  }
  private fun saveView(){
@@ -262,20 +348,66 @@ class DataTableFragment:Fragment(){
    vm.updateSelectedView()
   }.setNegativeButton(getString(R.string.p0_huy),null).show()
  }
- private fun addField(){
+ /** Airtable-style field sheet: header with the field's type icon, then one row per action. */
+ private fun fieldMenu(field:JsonObject){
+  val ctx=requireContext();val sheet=com.google.android.material.bottomsheet.BottomSheetDialog(ctx);val density=resources.displayMetrics.density
+  val ink=com.google.android.material.color.MaterialColors.getColor(binding!!.root,com.google.android.material.R.attr.colorOnSurface)
+  fun row(text:String,icon:Int,heading:Boolean=false,action:(()->Unit)?=null)=TextView(ctx).apply{
+   this.text=text;textSize=if(heading)18f else 16f;setTextColor(ink);gravity=Gravity.CENTER_VERTICAL;minHeight=(56*density).toInt()
+   setPadding((24*density).toInt(),0,(24*density).toInt(),0);compoundDrawablePadding=(20*density).toInt()
+   setCompoundDrawablesRelativeWithIntrinsicBounds(icon,0,0,0);compoundDrawableTintList=android.content.res.ColorStateList.valueOf(ink)
+   if(heading){setTypeface(typeface,Typeface.BOLD);androidx.core.view.ViewCompat.setAccessibilityHeading(this,true)}
+   if(action!=null){setBackgroundResource(android.R.drawable.list_selector_background);setOnClickListener{sheet.dismiss();action()}}
+  }
+  val shown=vm.displayedFields()
+  val list=LinearLayout(ctx).apply{orientation=LinearLayout.VERTICAL;setPadding(0,(8*density).toInt(),0,(16*density).toInt())}
+  list.addView(row(field.text("name"),fieldTypeIcon(field.text("type")),heading=true))
+  list.addView(row(getString(R.string.field_edit),R.drawable.ic_field_customize){addField(field)})
+  list.addView(row(getString(R.string.field_duplicate),R.drawable.ic_field_duplicate){vm.duplicateField(field)})
+  list.addView(row(getString(R.string.field_insert_left),R.drawable.ic_field_insert_left){addField(insertNextTo=field,right=false)})
+  list.addView(row(getString(R.string.field_insert_right),R.drawable.ic_field_insert_right){addField(insertNextTo=field,right=true)})
+  if(shown.size>1)list.addView(row(getString(R.string.field_hide),R.drawable.ic_field_hide){
+   val fields=vm.data.value?.objects("fields").orEmpty();vm.selectColumns(fields,BooleanArray(fields.size){fields[it] in shown&&fields[it].text("id")!=field.text("id")});render()
+  })
+  list.addView(row(getString(R.string.field_delete),R.drawable.ic_field_delete){
+   dialog=MaterialAlertDialogBuilder(ctx).setTitle(getString(R.string.field_delete_title,field.text("name"))).setMessage(R.string.field_delete_message).setPositiveButton(R.string.field_delete){_,_->vm.deleteField(field)}.setNegativeButton(R.string.p0_huy,null).show()
+  })
+  sheet.setContentView(android.widget.ScrollView(ctx).apply{addView(list)});sheet.show()
+ }
+ /** A view with its own column order would put the new field last; place it beside its neighbour there too. */
+ private fun placeNewField(id:String,neighbour:JsonObject?,right:Boolean){
+  if(neighbour==null||id.isBlank()||(vm.queryConfig.getAsJsonArray("fieldOrder")?.size()?:0)==0)return
+  val order=vm.displayedFields().map{it.text("id")}.filter{it!=id}.toMutableList()
+  val at=order.indexOf(neighbour.text("id")).takeIf{it>=0}?:return
+  order.add(if(right)at+1 else at,id);vm.setFieldOrder(order);schema="";render()
+ }
+ /** Default name like Airtable's "Field 6": the first "Cột N" not already used. */
+ private fun nextFieldName():String{
+  val names=vm.data.value?.objects("fields").orEmpty().map{it.text("name").lowercase()}.toSet()
+  return generateSequence(names.size+1){it+1}.map{getString(R.string.field_default_name,it)}.first{it.lowercase() !in names}
+ }
+ private fun addField(field:JsonObject?=null,insertNextTo:JsonObject?=null,right:Boolean=false){
   val b=DialogInputBinding.inflate(layoutInflater);b.valueBox.hint=getString(R.string.p0_ten_cot)
   val types=vm.fieldTypes()
-  b.choice.adapter=ArrayAdapter(requireContext(),android.R.layout.simple_spinner_dropdown_item,listOf(getString(R.string.p0_van_ban),getString(R.string.p0_so),getString(R.string.p0_ngay),getString(R.string.p0_danh_dau),getString(R.string.p0_lua_chon))+if(types.contains("USER"))listOf(getString(R.string.p0_thanh_vien_phu_trach)) else emptyList())
-  b.choice.onItemSelectedListener=object:AdapterView.OnItemSelectedListener{override fun onItemSelected(p:AdapterView<*>?,v:View?,position:Int,id:Long){b.extraBox.isVisible=position==4};override fun onNothingSelected(p:AdapterView<*>?){} }
-  val d=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.p0_them_cot_tuy_chinh)).setView(b.root).setPositiveButton(getString(R.string.p0_them),null).setNegativeButton(getString(R.string.p0_huy),null).create();dialog=d
+  b.choice.adapter=ArrayAdapter(requireContext(),android.R.layout.simple_spinner_dropdown_item,types.map{fieldTypeLabel(requireContext(),it)})
+  b.choice.onItemSelectedListener=object:AdapterView.OnItemSelectedListener{override fun onItemSelected(p:AdapterView<*>?,v:View?,position:Int,id:Long){b.extraBox.isVisible=types[position] in listOf("SELECT","MULTI_SELECT")};override fun onNothingSelected(p:AdapterView<*>?){} }
+  if(field!=null){
+   b.value.setText(field.text("name"));types.indexOf(field.text("type")).takeIf{it>=0}?.let{b.choice.setSelection(it)}
+   b.extra.setText(field.getAsJsonArray("options")?.joinToString(", "){it.asString}.orEmpty())
+  }else{b.value.setText(nextFieldName());b.value.selectAll()}
+  val title=when{field!=null->getString(R.string.field_edit);insertNextTo!=null->getString(if(right)R.string.field_insert_right else R.string.field_insert_left);else->getString(R.string.p0_them_cot_tuy_chinh)}
+  // Insert left/right: new field takes the neighbour's slot (left) or the one after it (right).
+  val position=insertNextTo?.get("position")?.takeUnless{it.isJsonNull}?.asInt?.let{if(right)it+1 else it}
+  val d=MaterialAlertDialogBuilder(requireContext()).setTitle(title).setView(b.root).setPositiveButton(getString(if(field==null)R.string.p0_them else R.string.p0_luu),null).setNegativeButton(getString(R.string.p0_huy),null).create();dialog=d
   d.setOnShowListener{d.getButton(-1).setOnClickListener{
-   val error=vm.createField(b.value.text.toString(),types[b.choice.selectedItemPosition],b.extra.text.toString()){if(isAdded)d.dismiss()}
+   val error=if(field==null)vm.createField(b.value.text.toString(),types[b.choice.selectedItemPosition],b.extra.text.toString(),position,created={id->placeNewField(id,insertNextTo,right)}){if(isAdded)d.dismiss()}
+    else vm.updateField(field,b.value.text.toString(),types[b.choice.selectedItemPosition],b.extra.text.toString()){if(isAdded)d.dismiss()}
    b.valueBox.error=null;b.extraBox.error=null
    if(error!=null){if(error==R.string.p0_nhap_ten_tu_1_den_100_ky_tu)b.valueBox.error=getString(error) else b.extraBox.error=getString(error)}
 
   }};d.show()
  }
- override fun onDestroyView(){dateDialog?.dismiss();dateDialog=null;dialog?.dismiss();dialog=null;binding?.grid?.adapter=null;binding?.cards?.adapter=null;binding=null;schema="";super.onDestroyView()}
+ override fun onDestroyView(){(requireActivity() as com.threeddk.tasks.MainActivity).paintChrome(null);dateDialog?.dismiss();dateDialog=null;dialog?.dismiss();dialog=null;binding?.grid?.adapter=null;binding?.cards?.adapter=null;binding=null;schema="";super.onDestroyView()}
 }
 
 internal fun operatorLabel(context:android.content.Context,operator:String):String=when(operator){
@@ -283,6 +415,7 @@ internal fun operatorLabel(context:android.content.Context,operator:String):Stri
 }?.let{context.getString(it)}?:operator
 internal fun cellLabel(context:android.content.Context,field:JsonObject?,value:JsonElement?,members:List<JsonObject>):String{
  if(value==null||value.isJsonNull)return context.getString(R.string.p0_cell_empty)
+ if(value.isJsonArray)return value.asJsonArray.joinToString(", "){it.asString}.ifEmpty{context.getString(R.string.p0_cell_empty)}
  if(!value.isJsonPrimitive)return value.toString()
  val text=value.asString
  return when(field?.text("type")){
@@ -292,3 +425,7 @@ internal fun cellLabel(context:android.content.Context,field:JsonObject?,value:J
   else->text
  }
 }
+internal fun fieldTypeLabel(context:android.content.Context,type:String)=context.getString(when(type){
+ "NUMBER"->R.string.p0_so;"DATE"->R.string.p0_ngay;"CHECKBOX"->R.string.p0_danh_dau;"SELECT"->R.string.p0_lua_chon;"USER"->R.string.p0_thanh_vien_phu_trach
+ "LONG_TEXT"->R.string.field_type_long_text;"MULTI_SELECT"->R.string.field_type_multi_select;"URL"->R.string.field_type_url;"EMAIL"->R.string.field_type_email;"PHONE"->R.string.field_type_phone
+ else->R.string.p0_van_ban})
