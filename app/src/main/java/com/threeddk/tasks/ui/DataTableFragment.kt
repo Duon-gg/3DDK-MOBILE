@@ -94,9 +94,7 @@ class DataTableFragment:Fragment(){
  private fun updatePresentation(){val b=binding?:return;val ok=!vm.accessDenied.value;b.cards.isVisible=ok&&layoutMode=="CARDS";b.kanban.isVisible=ok&&layoutMode=="KANBAN";b.gridContainer.isVisible=ok&&layoutMode=="GRID";b.group.isVisible=layoutMode=="GRID"}
  private fun saveLayout(){
   prefs.edit().putString("$path/layout",layoutMode).putString("$path/group",groupFieldId).putString("$path/kanban",kanbanFieldId).apply()
-  // Drop ids of fields deleted since they were chosen; the server rejects unknown fields.
-  val ids=vm.data.value?.objects("fields").orEmpty().map{it.text("id")}
-  val layout=JsonObject().apply{addProperty("type",layoutMode);addProperty("groupFieldId",groupFieldId?.takeIf{it in ids});addProperty("kanbanFieldId",kanbanFieldId?.takeIf{it in ids})}
+  val layout=JsonObject().apply{addProperty("type",layoutMode);addProperty("groupFieldId",groupFieldId);addProperty("kanbanFieldId",kanbanFieldId)}
   appliedLayout=layout;vm.setLayout(layout)
  }
  /** The open view's saved layout wins over this device's last choice, so everyone sees the same view. */
