@@ -13,7 +13,6 @@ Ngày: **17/10/2026**. Phục vụ thiết kế 3DDK bằng Kotlin/XML, Firebase
 | Marketing/README | Đọc trang chính và README để tìm hướng sản phẩm | Định vị sản phẩm; cần kiểm lại bằng tài liệu/source | Benchmark, SLA hay “triệu dòng” đã được kiểm nghiệm |
 | Quan sát UI trực tiếp | **Chưa thực hiện** phiên đăng nhập/ứng dụng hai hãng | Không có kết luận tương tác trực tiếp | Không gắn nhãn “đã thao tác”, không tạo ảnh giả làm bằng chứng |
 | API/network runtime | **Chưa gọi authenticated API**, chưa thu network trace | Public contract từ tài liệu | Private endpoint, token/session hay cơ chế concurrency nội bộ Airtable |
-| REA | **Chưa cài, chưa khởi chạy, chưa phân tích binary/site bằng REA** | Chỉ có kế hoạch trong [REA_SETUP_PLAN.md](REA_SETUP_PLAN.md) | Không có output REA để tuyên bố công cụ phát hiện thành công |
 
 Không đọc cookie, credential, database production, source proprietary hoặc nội dung tài khoản để làm nghiên cứu. HTTP đọc public GitHub API/raw file và trang tài liệu không phải sử dụng REA.
 
@@ -137,7 +136,7 @@ Chỉ dùng tài khoản và dữ liệu thử do chủ dự án cho phép, khô
 | V09 Automation/webhook | Test event trùng, lỗi action, tắt rule, rate limit | Delivery/retry thực tế, run log và side effects có bị lặp; không gọi dịch vụ trả phí |
 | V10 Backup/restore | Export/snapshot dữ liệu giả và restore bản sao | Record/config/file/history được gì, thiếu gì; tuyệt đối không restore đè production |
 
-REA nếu được duyệt chỉ dùng khi loại artifact/capability của công cụ phù hợp và nguồn truy cập hợp lệ. Public docs/source hiện đã đủ cho phân tích khái niệm; công cụ không tạo bằng chứng runtime nếu chưa chạy. Xem [REA_SETUP_PLAN.md](REA_SETUP_PLAN.md) để phân biệt công cụ sẵn có, bước cần duyệt và giới hạn.
+REA nếu được duyệt chỉ dùng khi loại artifact/capability của công cụ phù hợp và nguồn truy cập hợp lệ. Public docs/source hiện đã đủ cho phân tích khái niệm; công cụ không tạo bằng chứng runtime nếu chưa chạy.
 
 ## 7. Các câu hỏi còn mở
 
@@ -174,7 +173,6 @@ Tài liệu online có thể đổi. Link source cố định giữ được rev
 | File | Nội dung để người dùng duyệt |
 |---|---|
 | [PROJECT_CURRENT_STATE.md](PROJECT_CURRENT_STATE.md) | Cấu trúc repo, công nghệ, schema/API/quyền thật, tái sử dụng và bằng chứng kiểm thử hiện có |
-| [REA_SETUP_PLAN.md](REA_SETUP_PLAN.md) | Runtime, công cụ thực có, cách nối Codex, các bước cài/config chưa được thực hiện |
 | [FEATURE_INVENTORY.md](FEATURE_INVENTORY.md) | 37 mục tính năng, mỗi mục đủ chín nội dung phân tích |
 | [REVERSE_ENGINEERING_REPORT.md](REVERSE_ENGINEERING_REPORT.md) | Phương pháp, nguồn, giới hạn và kết quả đối chiếu |
 | [FEATURE_GAP_ANALYSIS.md](FEATURE_GAP_ANALYSIS.md) | Đã có/chưa có và ánh xạ vào các task |

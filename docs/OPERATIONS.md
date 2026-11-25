@@ -2,8 +2,8 @@
 ## PR và Teable
 Nhập docs/teable-backlog.csv vào Teable. Gán A/B/C cho đúng thành viên thật.
 Trạng thái: Backlog → Ready → Doing → Review → Done.
-Nhánh codex/<ma-viec>-<mo-ta>; PR ghi mã Teable, thay đổi và kết quả kiểm thử.
-Mỗi người kiểm tra code AI của mình; không thay tác giả commit để giả lập đóng góp.
+Nhánh feat/<ma-viec>-<mo-ta> hoặc fix/<ma-viec>-<mo-ta>; PR ghi mã Teable, thay đổi và kết quả kiểm thử.
+Mỗi người tự kiểm tra code của mình; không thay tác giả commit để giả lập đóng góp.
 CI không có secrets production; người khác review trước khi merge master.
 
 ## Theo dõi
