@@ -93,6 +93,11 @@ class DataTableFragment:Fragment(){
   watch(vm.note){b.status.text=it};watch(vm.notice){if(it!=null){tell(it);vm.notice.value=null}};watch(vm.error){b.status.isVisible=it!=null;if(it!=null){b.status.text=it;dialog?.setMessage(it)}};vm.openTable(path,arguments?.getString("initialViewId"))
  }
  override fun onSaveInstanceState(outState:Bundle){outState.putBoolean("queryExpanded",binding?.queryActions?.isVisible==true);outState.putBoolean("searchExpanded",searchExpanded);super.onSaveInstanceState(outState)}
+ /** "50 / 300 dòng" while more rows match than are loaded, like Airtable's record count. */
+ private fun countLabel(loaded:Int,data:JsonObject):String{
+  val total=data.get("total")?.takeIf{it.isJsonPrimitive}?.asInt?:loaded
+  return if(total>loaded)getString(R.string.summary_count_of,loaded,total) else getString(R.string.summary_count,loaded)
+ }
  private fun tell(message:String){view?.let{com.google.android.material.snackbar.Snackbar.make(it,message,com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show()}}
  private fun updatePresentation(){val b=binding?:return;val ok=!vm.accessDenied.value;b.cards.isVisible=ok&&layoutMode=="CARDS";b.kanban.isVisible=ok&&layoutMode=="KANBAN";b.gridContainer.isVisible=ok&&layoutMode=="GRID";b.group.isVisible=layoutMode=="GRID"}
  private fun saveLayout(){
@@ -175,7 +180,7 @@ class DataTableFragment:Fragment(){
   gridFields.forEachIndexed{i,f->
    val s=com.threeddk.tasks.viewmodel.columnSummary(records,f)
    val text=when(s.kind){"checked"->getString(R.string.summary_checked,s.value.toInt());"sum"->getString(R.string.summary_sum,s.value);else->getString(R.string.summary_filled,s.value.toInt())}
-   b.summary.addView(gridCell(requireContext(),if(i==0)getString(R.string.summary_count,records.size)+" · "+text else text,f.text("type"),header=true,icon=false))
+   b.summary.addView(gridCell(requireContext(),if(i==0)countLabel(records.size,data)+" · "+text else text,f.text("type"),header=true,icon=false))
   }
   val stack=fields.firstOrNull{it.text("id")==kanbanFieldId&&it.text("type")=="SELECT"}
   if(layoutMode=="KANBAN"&&stack==null){layoutMode="GRID";updatePresentation()}

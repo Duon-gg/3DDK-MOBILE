@@ -35,6 +35,7 @@
     <string name="group_none">Không nhóm</string>
     <string name="group_header">%1$s · %2$d</string>
     <string name="summary_count">%1$d dòng</string>
+    <string name="summary_count_of">%1$d / %2$d dòng</string>
     <string name="summary_filled">%1$d đã điền</string>
     <string name="summary_checked">%1$d%% đã tick</string>
     <string name="summary_sum">Tổng %1$s</string>

@@ -95,14 +95,24 @@ class WorkspaceFragment:Fragment(){
   watch(vm.data){render();requireActivity().invalidateOptionsMenu()}
   watch(vm.capabilities){render();requireActivity().invalidateOptionsMenu()}
   watch(vm.busy){b.refresh.isEnabled=!it;b.add.isEnabled=!it;b.homeAdd.isEnabled=!it;dialog?.getButton(-1)?.isEnabled=!it}
-  watch(vm.note){b.sync.text=it};watch(vm.error){if(it!=null){b.sync.isVisible=true;b.sync.text=it;dialog?.setMessage(it)}}
-  if(path.startsWith("bases/")){
-   b.list.isVisible=false;b.actions.isVisible=false;b.heading.setText(R.string.p0_dang_tai)
-   vm.resolveBase(path){base,table->if(binding===b){
-    if(table==null){b.list.isVisible=true;b.actions.isVisible=true;vm.open(path)}
-    else findNavController().navigate(R.id.dataTable,bundleOf("path" to "tables/$table","basePath" to path,"baseName" to base.text("name")),androidx.navigation.navOptions{popUpTo(R.id.workspaceBrowser){inclusive=true}})
-   }}
-  }else vm.open(if(path=="test-workspaces")"workspaces" else path)
+  watch(vm.note){b.sync.text=it};watch(vm.error){if(it!=null){b.sync.isVisible=true;b.sync.text=it;dialog?.setMessage(it);showResolveFailure(it)}}
+  if(path.startsWith("bases/"))resolveBase(b)
+  else vm.open(if(path=="test-workspaces")"workspaces" else path)
+ }
+ private var resolving=false
+ private fun resolveBase(b:com.threeddk.tasks.databinding.FragmentWorkspaceBinding){
+  resolving=true;b.list.isVisible=false;b.actions.isVisible=false;b.heading.setText(R.string.p0_dang_tai)
+  vm.resolveBase(path){base,table->if(binding===b){
+   resolving=false
+   if(table==null){b.list.isVisible=true;b.actions.isVisible=true;b.refresh.setOnClickListener{vm.refresh()};vm.open(path)}
+   else findNavController().navigate(R.id.dataTable,bundleOf("path" to "tables/$table","basePath" to path,"baseName" to base.text("name")),androidx.navigation.navOptions{popUpTo(R.id.workspaceBrowser){inclusive=true}})
+  }}
+ }
+ /** A base never opened before cannot load offline: show the error with a retry instead of "Đang tải" forever. */
+ private fun showResolveFailure(message:String){
+  val b=binding?:return
+  if(!resolving||!path.startsWith("bases/"))return
+  b.heading.text=message;b.actions.isVisible=true;b.refresh.setOnClickListener{resolveBase(b)}
  }
  private fun render(){
   val b=binding?:return;val data=vm.data.value

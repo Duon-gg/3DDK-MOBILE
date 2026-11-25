@@ -34,7 +34,20 @@ class WorkspaceRepository(private val session:TaskRepository) {
  }
  suspend fun toggleWorkspaceStar(path:String)=lock.withLock{
   val owner=uid;val starred=session.dao.entry(owner,"v2-workspace-star",path)?.json=="true"
-  checkOwner(owner);session.dao.put(listOf(CacheEntry(owner,"v2-workspace-star",path,(!starred).toString())))
+  checkOwner(owner);saveMark(CacheEntry(owner,"v2-workspace-star",path,(!starred).toString()))
+ }
+ /** Stars and recents live in the offline cache and on the server, so they survive sign-out and a new phone. */
+ private suspend fun saveMark(entry:CacheEntry){
+  session.dao.put(listOf(entry))
+  runCatching{session.workspaceApi.call("PUT","me/marks",JsonObject().apply{addProperty("kind",entry.kind);addProperty("id",entry.id);addProperty("json",entry.json)})}
+ }
+ /** After sign-in: bring back marks saved from this or another phone; local ones not yet on the server win. */
+ suspend fun pullMarks()=lock.withLock{
+  val owner=uid
+  val items=session.workspaceApi.call("GET","me/marks").asJsonObject.objects("items")
+  checkOwner(owner)
+  val local=session.dao.entries(owner).map{it.kind to it.id}.toSet()
+  session.dao.put(items.filter{(it.text("kind") to it.text("id")) !in local}.map{CacheEntry(owner,it.text("kind"),it.text("id"),it.text("json"))})
  }
 
  fun observeRecentBases(owner:String)=session.dao.observe(owner).map { rows->
@@ -47,15 +60,16 @@ class WorkspaceRepository(private val session:TaskRepository) {
   val base=recentBases(session.dao.entries(owner),owner).firstOrNull{it.path==path}?:return@withLock
   val entry=JsonObject().apply{addProperty("starred",!base.starred)}
   checkOwner(owner)
-  session.dao.put(listOf(CacheEntry(owner,"v2-base-star",path,entry.toString())))
+  saveMark(CacheEntry(owner,"v2-base-star",path,entry.toString()))
  }
 
  suspend fun rememberBase(path:String)=lock.withLock {
   val owner=uid
-  if(session.dao.entry(owner,"v2",path)==null)return@withLock
-  val entry=JsonObject().apply{addProperty("opened",System.currentTimeMillis())}
+  val base=session.dao.entry(owner,"v2",path)?.let{JsonParser.parseString(it.json).asJsonObject}?:return@withLock
+  // Name and workspace travel with the mark so Recents can show it before the base is opened on a new phone.
+  val entry=JsonObject().apply{addProperty("opened",System.currentTimeMillis());addProperty("name",base.text("name"));addProperty("workspaceId",base.text("workspaceId"))}
   checkOwner(owner)
-  session.dao.put(listOf(CacheEntry(owner,"v2-recent-base",path,entry.toString())))
+  saveMark(CacheEntry(owner,"v2-recent-base",path,entry.toString()))
  }
 
  suspend fun updateHome(path:String,basePath:String,toggleStar:Boolean)=lock.withLock {
@@ -69,7 +83,7 @@ class WorkspaceRepository(private val session:TaskRepository) {
    addProperty("starred",if(toggleStar)!starred else starred)
   }
   checkOwner(meta.owner)
-  session.dao.put(listOf(CacheEntry(owner,"v2-home",path,entry.toString())))
+  saveMark(CacheEntry(owner,"v2-home",path,entry.toString()))
  }
  private val lock=Mutex()
  val uid get()=session.uid ?: throw ApiException("UNAUTHORIZED")
@@ -86,6 +100,7 @@ class WorkspaceRepository(private val session:TaskRepository) {
    val legacy=if(meta.kind=="v2"&&!query.has("filter")&&!query.has("search")&&!query.has("viewId"))get("records") else null
    add("records",page?.get("items")?:legacy?:JsonArray())
    addProperty("hasMore",page?.get("hasMore")?.asBoolean?:false)
+   page?.get("total")?.takeIf{it.isJsonPrimitive}?.let{add("total",it)}
    addProperty("queryCached",page!=null||legacy!=null)
    add("nextCursor",page?.get("nextCursor")?:JsonNull.INSTANCE)
   }
@@ -212,6 +227,8 @@ fun mergeRecordPage(previous:JsonObject?,page:JsonObject):JsonObject=page.deepCo
   val rows=linkedMapOf<String,JsonObject>()
   (previous.objects("items")+page.objects("items")).forEach{rows[it.text("id")]=it}
   add("items",JsonArray().apply{rows.values.forEach{add(it)}})
+  // Only the first page carries the match count.
+  if(!has("total"))previous.get("total")?.let{add("total",it)}
  }
 }
 

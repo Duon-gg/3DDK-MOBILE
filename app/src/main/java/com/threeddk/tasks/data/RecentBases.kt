@@ -11,8 +11,7 @@ internal fun recentBases(entries:List<CacheEntry>,owner:String):List<WorkspaceRe
  return rows.filter{it.kind=="v2-home"||it.kind=="v2-recent-base"}.mapNotNull{entry->
   val saved=JsonParser.parseString(entry.json).asJsonObject
   val path=if(entry.kind=="v2-recent-base")entry.id else saved.text("basePath")
-  val base=bases[path]?:return@mapNotNull null
-  val metadata=JsonParser.parseString(base.json).asJsonObject
+  val metadata=bases[path]?.let{JsonParser.parseString(it.json).asJsonObject}?:saved
   val name=metadata.text("name")
   if(name.isBlank())return@mapNotNull null
   WorkspaceRepository.RecentBase(path,name,saved["opened"].asLong,saved["starred"]?.asBoolean?:false,metadata.text("workspaceId"))

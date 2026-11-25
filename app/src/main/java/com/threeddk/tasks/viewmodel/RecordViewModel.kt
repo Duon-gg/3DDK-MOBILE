@@ -144,6 +144,8 @@ class RecordViewModel(app:Application,private val savedState:SavedStateHandle):A
  fun beforeSwitch(done:()->Unit){
   if(!ready.value||busy.value)return
   if(!dirty){done();return}
+  // Like Airtable, moving to another record saves this one; a failed save keeps the draft and stays here.
+  if(writable&&!conflict.value&&recordId!="new"&&!recordId.startsWith("new/")){submit(done);return}
   busy.value=true
   viewModelScope.launch{
    try{draftMutex.withLock{repo.save(makeDraft())};done()}
@@ -185,7 +187,8 @@ class RecordViewModel(app:Application,private val savedState:SavedStateHandle):A
    }catch(e:CancellationException){throw e}catch(e:Exception){if(e is ApiException&&e.code in listOf("FORBIDDEN","UNAUTHORIZED","NOT_FOUND"))hideRemoteData();status.value=friendlyError(e)}finally{busy.value=false}
   }
  }
- fun submit(){
+ /** [after] runs instead of closing the editor, for previous/next. */
+ fun submit(after:(()->Unit)?=null){
   if(busy.value||!writable||!ready.value||conflict.value)return
   val isCreate=recordId=="new"
   val retryingCreate=isCreate&&pendingCreateJson.isNotBlank()
@@ -221,7 +224,7 @@ class RecordViewModel(app:Application,private val savedState:SavedStateHandle):A
      }
      draftMutex.withLock{repo.save(makeDraft());if(oldKey!=key)repo.removeDraft(oldKey,owner)}
     }else draftMutex.withLock{repo.removeDraft(key,owner)}
-    finished.value=true
+    if(after!=null)after() else finished.value=true
    }catch(e:CancellationException){throw e}catch(e:Exception){
     if(isCreate&&creationPending.value){
      if(canUnlockPendingCreation((e as? ApiException)?.code,retryingCreate,networkAttempted)){
@@ -261,11 +264,16 @@ class RecordViewModel(app:Application,private val savedState:SavedStateHandle):A
   if(recordId=="new")return
   viewModelScope.launch{runCatching{repo.mutate("GET","$path/records/$recordId/comments",JsonObject())}.onSuccess{comments.value=it.objects("comments")}}
  }
+ private var sendingComment=false
  fun addComment(body:String,mentions:List<String>,done:()->Unit){
-  if(body.isBlank()||body.length>2000||recordId=="new")return
+  if(body.isBlank()||recordId=="new"||sendingComment)return
+  if(body.length>2000){status.value="Bình luận tối đa 2.000 ký tự.";return}
+  // A double tap on Gửi must not post the comment twice.
+  sendingComment=true
   viewModelScope.launch{
    try{comments.value=repo.mutate("POST","$path/records/$recordId/comments",JsonObject().apply{addProperty("body",body.trim());add("mentions",Gson().toJsonTree(mentions.distinct()))}).objects("comments");done()}
    catch(e:CancellationException){throw e}catch(e:Exception){status.value=friendlyError(e)}
+   finally{sendingComment=false}
   }
  }
  /** Airtable rules: only the author edits; the author or a base owner deletes. */

@@ -76,6 +76,7 @@ class AppViewModel(app:Application):AndroidViewModel(app) {
  private suspend fun refreshNow() {
   try {
    repo.refresh();session.value="READY";registerPush()
+   runCatching{repo.workspaces.pullMarks()}
    syncNote.value="Đã đồng bộ • ${formattedTime(java.time.Instant.now().toString())}"
   } catch(e:Exception){
    syncNote.value="Đang xem dữ liệu đã lưu • Chưa đồng bộ được"
