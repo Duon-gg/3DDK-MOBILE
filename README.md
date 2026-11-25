@@ -6,6 +6,16 @@ Mục tiêu tham chiếu là Teable, nhưng bản hiện tại chưa có toàn b
 
 Kotlin · XML/View Binding · MVVM/StateFlow · Room · Retrofit/Gson · Firebase Auth/FCM · Supabase PostgreSQL/Edge Functions.
 
+## Nhóm thực hiện
+
+Đồ án cuối kỳ môn Lập trình ứng dụng di động (71ITSE30603), Nhóm 03, giảng viên Trần Công Thanh.
+
+| Thành viên | MSSV | Phần phụ trách |
+|---|---|---|
+| Nguyễn Văn Tùng Dương (nhóm trưởng) | 2374802010086 | Tài khoản, đăng nhập; bảng P0 và sửa dòng |
+| Nguyễn Bảo Khang | 2374802010211 | Giao diện bảng, cách hiển thị; bình luận và link mời |
+| Hồ Quốc Duy | 2374802010074 | Thông báo đẩy, hộp thông báo; quản trị, thùng rác dòng; kiểm thử |
+
 ## Chạy dự án
 
 1. Dùng JDK 21 và Android SDK 35.
