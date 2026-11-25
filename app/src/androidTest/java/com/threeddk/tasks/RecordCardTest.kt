@@ -29,7 +29,7 @@ class RecordCardTest {
     @Test fun cardKeepsTitleAndPrioritizesDeadlinePersonAndFirstSelectAndOpensTheSameRecord() {
         instrumentation.runOnMainSync {
             var openedId: String? = null
-            val adapter = RecordCardAdapter { openedId = it }
+            val adapter = RecordCardAdapter(click = { openedId = it })
             adapter.fields = listOf(
                 field("topic", "Chủ đề", "TEXT"),
                 field("description", "Mô tả", "TEXT"),
@@ -70,7 +70,7 @@ class RecordCardTest {
         lateinit var holder: RecordCardAdapter.Holder
         var openedId: String? = null
         instrumentation.runOnMainSync {
-            adapter = RecordCardAdapter { openedId = it }
+            adapter = RecordCardAdapter(click = { openedId = it })
             adapter.fields = listOf(
                 field("old", "Cột cũ", "TEXT"), field("extra", "Ghi chú cũ", "TEXT")
             )

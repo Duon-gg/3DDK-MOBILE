@@ -52,7 +52,7 @@ class RecordEditorFragment:Fragment(){
   watch(vm.table){if(it==null){b.fields.removeAllViews();dialog?.dismiss();dateDialog?.dismiss();rendered=false;schema="";requireActivity().invalidateOptionsMenu()}else{val signature=it.objects("fields").toString()+it.objects("members").toString();if(vm.ready.value&&signature!=schema)render()}}
   watch(vm.status){b.status.text=it;updateEnabled()};watch(vm.busy){updateEnabled()}
   watch(vm.creationPending){if(it){dialog?.dismiss();dateDialog?.dismiss()};updateEnabled()}
-  watch(vm.conflict){b.reconcile.isVisible=it;if(!it&&vm.ready.value)render();updateEnabled()};watch(vm.finished){if(it)findNavController().popBackStack()};watch(vm.duplicated){if(it!=null){vm.duplicated.value=null;switchRow(it)}}
+  watch(vm.conflict){b.reconcile.isVisible=it;if(!it&&vm.ready.value)render();updateEnabled()};watch(vm.finished){if(it)findNavController().popBackStack()};watch(vm.duplicated){if(it!=null){vm.duplicated.value=null;switchRow(it,insertAfterCurrent=true)}}
   watch(vm.history){if(historyRequested&&it!=null){historyRequested=false;showHistory(it)}}
   vm.open(requireArguments().getString("path")!!,recordId)
   watch(vm.ready){if(it&&vm.canComment&&vm.comments.value==null)vm.loadComments()}
@@ -71,7 +71,8 @@ class RecordEditorFragment:Fragment(){
    vm.addComment(text,keep){if(binding===b){b.commentInput.setText("");mentioned.clear()}}
   }
  }
- private val mentioned=mutableListOf<String>()
+ // Kept in the ViewModel so a rotation does not drop who was @mentioned.
+ private val mentioned get()=vm.mentioned
  private fun renderComments(items:List<JsonObject>?){
   val b=binding?:return;val show=items!=null
   b.commentsTitle.isVisible=show;b.commentBar.isVisible=show;b.comments.removeAllViews()
@@ -121,13 +122,15 @@ class RecordEditorFragment:Fragment(){
     if(text.isNotBlank())vm.changeComment(c.text("id"),text,keep){}
    }.show()
  }
- private fun switchRow(id:String?){
+ /** [insertAfterCurrent]: the duplicate is new to the row list, so place it right after this record to keep "1 / N". */
+ private fun switchRow(id:String?,insertAfterCurrent:Boolean=false){
   if(id==null)return
+  val rows=if(insertAfterCurrent&&id !in rowIds)rowIds.toMutableList().apply{add(indexOf(recordId)+1,id)}.toTypedArray() else rowIds
   val view=binding?.root?:return
   vm.beforeSwitch{
    if(binding?.root!==view||findNavController().currentDestination?.id!=R.id.recordEditor)return@beforeSwitch
    findNavController().navigate(R.id.recordEditor,
-    bundleOf("path" to requireArguments().getString("path"),"recordId" to id,"rowIds" to rowIds),
+    bundleOf("path" to requireArguments().getString("path"),"recordId" to id,"rowIds" to rows),
     navOptions{popUpTo(R.id.recordEditor){inclusive=true}})
   }
  }
@@ -135,7 +138,7 @@ class RecordEditorFragment:Fragment(){
  override fun onOptionsItemSelected(item:MenuItem):Boolean{
   when(item.itemId){
    20->dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.p0_luu_tru_dong_nay)).setMessage(getString(R.string.p0_dong_se_bien_mat_khoi_bang_nhap_tren)).setPositiveButton(getString(R.string.p0_luu_tru)){_,_->vm.archive()}.setNegativeButton(getString(R.string.p0_huy),null).show()
-   21->{historyRequested=true;if(vm.history.value!=null){historyRequested=false;showHistory(vm.history.value!!)}else vm.loadHistory()}
+   21->{historyRequested=true;vm.loadHistory()}
    22->copyDraft()
    23->vm.duplicate()
    else->return super.onOptionsItemSelected(item)
