@@ -88,7 +88,7 @@ class DataTableFragment:Fragment(){
   watch(vm.data){data->
    if(data!=null&&!vm.accessDenied.value&&!remembered){remembered=true;vm.rememberTable(path,basePath)}
    render();requireActivity().invalidateOptionsMenu()
-  };watch(vm.accessDenied){render();requireActivity().invalidateOptionsMenu()};watch(vm.drafts){requireActivity().invalidateOptionsMenu()};watch(vm.selectedViewId){b.search.setText(vm.queryConfig.text("search"));render()};watch(vm.hasMore){b.more.isVisible=it};watch(vm.capabilities){render();requireActivity().invalidateOptionsMenu()}
+  };watch(vm.accessDenied){render();requireActivity().invalidateOptionsMenu()};watch(vm.drafts){requireActivity().invalidateOptionsMenu()};watch(vm.selectedViewId){vm.queryConfig.text("search").let{if(b.search.text.toString()!=it)b.search.setText(it)};render()};watch(vm.hasMore){b.more.isVisible=it};watch(vm.capabilities){render();requireActivity().invalidateOptionsMenu()}
   watch(vm.busy){val usable=vm.data.value!=null&&!vm.accessDenied.value;b.refresh.isEnabled=!it;b.add.isEnabled=!it&&usable;b.more.isEnabled=!it&&usable;b.viewChoice.isEnabled=!it&&usable;b.filter.isEnabled=!it&&usable;b.sort.isEnabled=!it&&usable;b.columns.isEnabled=!it&&usable;dialog?.getButton(-1)?.isEnabled=!it;b.status.text=if(it)getString(R.string.p0_dang_tai_giu_du_lieu_da_hien_thi) else vm.error.value?:vm.note.value}
   watch(vm.note){b.status.text=it};watch(vm.notice){if(it!=null){tell(it);vm.notice.value=null}};watch(vm.error){b.status.isVisible=it!=null;if(it!=null){b.status.text=it;dialog?.setMessage(it)}};vm.openTable(path,arguments?.getString("initialViewId"))
  }

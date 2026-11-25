@@ -199,7 +199,12 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
   }
   observe();run{queryCurrent();note.value="Đã tải kết quả • Có thể tải thêm trang nếu còn dữ liệu"}
  }
- fun search(query:String){searchJob?.cancel();searchJob=viewModelScope.launch{delay(300);queryTable(search=query)}}
+ fun search(query:String){
+  searchJob?.cancel()
+  // The screen refills the box when a view opens; that echo must not start a query that cancels the view's own load.
+  if(query.trim()==queryConfig.text("search").trim())return
+  searchJob=viewModelScope.launch{delay(300);queryTable(search=query)}
+ }
  fun loadMore(){if(!tableMode||busy.value||!hasMore.value)return;run{
   try{queryCurrent(true)}catch(e:ApiException){if(e.code=="CURSOR_STALE"){queryCurrent();note.value="Dữ liệu đã đổi • Đã tải lại trang đầu";notice.value=note.value}else throw e}
  }}
