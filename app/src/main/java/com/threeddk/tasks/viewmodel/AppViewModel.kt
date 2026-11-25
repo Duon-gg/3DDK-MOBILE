@@ -100,7 +100,11 @@ class AppViewModel(app:Application):AndroidViewModel(app) {
  fun refresh()=execute{refreshNow()}
  fun login(email:String,password:String,register:Boolean,remember:Boolean)=execute{
   requireNotNull(repo.auth)
-  if(register){repo.auth.createUserWithEmailAndPassword(email.trim(),password).await();repo.auth.currentUser!!.sendEmailVerification().await()}
+  if(register){
+   repo.auth.createUserWithEmailAndPassword(email.trim(),password).await()
+   // The account exists now; a failed email must not leave the user on sign-up, where retrying says "already registered".
+   if(runCatching{repo.auth!!.currentUser!!.sendEmailVerification().await()}.isFailure)message.value="Đã tạo tài khoản nhưng chưa gửi được email xác minh. Bấm Gửi lại email ở bước sau."
+  }
   else repo.auth.signInWithEmailAndPassword(email.trim(),password).await()
   repo.rememberEmail(email.trim(),remember);restore()
  }
@@ -114,6 +118,7 @@ class AppViewModel(app:Application):AndroidViewModel(app) {
   repo.auth?.currentUser?.reload()?.await()
   repo.auth?.currentUser?.getIdToken(true)?.await()
   restore()
+  if(session.value=="VERIFY")message.value="Email chưa được xác minh. Mở liên kết trong email rồi thử lại."
  }
  fun resendVerification()=execute{repo.auth?.currentUser?.sendEmailVerification()?.await();message.value="Đã gửi email xác minh. Kiểm tra cả thư mục spam."}
  fun reset(email:String)=execute{

@@ -49,6 +49,7 @@
     <string name="kanban_move_to">Chuyển "%1$s" sang</string>
     <string name="field_insert_left">Chèn cột bên trái</string>
     <string name="field_insert_right">Chèn cột bên phải</string>
+    <string name="field_primary">Cột chính: %1$s</string>
     <string name="field_hide">Ẩn cột</string>
     <string name="field_default_name">Cột %1$d</string>
     <string name="collab_title">Cộng tác viên</string>

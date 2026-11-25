@@ -100,6 +100,7 @@ class RecordViewModel(app:Application,private val savedState:SavedStateHandle):A
  private var archiveRequestId=java.util.UUID.randomUUID().toString()
  private val draftMutex=Mutex()
  fun open(resource:String,id:String){
+  if(id!=recordId)mentioned.clear()
   if(path.isNotEmpty())return
   owner=repo.uid;path=resource;recordId=if(id.startsWith("new/"))"new" else id
   val localId=if(id.startsWith("new/"))id.substringAfter("new/") else if(id=="new")savedState.get<String>("localDraftId")?:java.util.UUID.randomUUID().toString().also{savedState["localDraftId"]=it} else id
@@ -259,6 +260,8 @@ class RecordViewModel(app:Application,private val savedState:SavedStateHandle):A
  /** Copies the saved cells (not unsaved edits) into a new record, like Airtable's "Duplicate record". */
  /** Record comments (Airtable-style); null until loaded, hidden for unsaved rows. */
  val comments=MutableStateFlow<List<JsonObject>?>(null)
+ /** Members picked with @ for the comment being written. */
+ val mentioned=mutableListOf<String>()
  val canComment get()=recordId!="new"&&ready.value
  fun loadComments(){
   if(recordId=="new")return
@@ -298,8 +301,12 @@ class RecordViewModel(app:Application,private val savedState:SavedStateHandle):A
   }
  }
  fun loadHistory(){if(recordId=="new"||busy.value)return;viewModelScope.launch{
-  try{history.value=repo.cached("$path/records/$recordId/history");repo.refresh("$path/records/$recordId/history");history.value=repo.cached("$path/records/$recordId/history")}
-  catch(e:CancellationException){throw e}catch(e:Exception){if(e is ApiException&&e.code in listOf("FORBIDDEN","UNAUTHORIZED","NOT_FOUND"))hideRemoteData();status.value=friendlyError(e)}
+  // Show the fresh history; the cached copy is only for offline.
+  history.value=null
+  try{repo.refresh("$path/records/$recordId/history");history.value=repo.cached("$path/records/$recordId/history")}
+  catch(e:CancellationException){throw e}
+  catch(e:java.io.IOException){history.value=repo.cached("$path/records/$recordId/history")?:run{status.value=friendlyError(e);null}}
+  catch(e:Exception){if(e is ApiException&&e.code in listOf("FORBIDDEN","UNAUTHORIZED","NOT_FOUND"))hideRemoteData();status.value=friendlyError(e)}
  }}
 
  fun orphanValues()=raw.entrySet().filter{(id,_)->table.value?.objects("fields").orEmpty().none{it.text("id")==id}}

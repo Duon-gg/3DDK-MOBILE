@@ -274,10 +274,10 @@ class DataTableFragment:Fragment(){
   if(basePath.isNotBlank()&&vm.data.value?.text("role")=="OWNER"&&vm.supports("inviteLinks"))menu.add(0,15,0,getString(R.string.collab_title)).setIcon(R.drawable.ic_person_add).setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
   if(basePath.isNotBlank())listOfNotNull(menu.findItem(R.id.display_mode),menu.findItem(15)).forEach{it.icon?.mutate()?.setTint(com.threeddk.tasks.adapter.RowAdapter.tileFor(basePath).second)}
   if(vm.supports("savedViews")){menu.add(0,11,0,getString(R.string.p0_luu_thanh_che_do_xem_moi));if(editableView()!=null)menu.add(0,12,1,getString(R.string.p0_luu_thay_doi_che_do_xem))}
-  if(vm.data.value?.text("role")=="OWNER"){menu.add(0,10,2,getString(R.string.p0_them_cot));menu.add(0,14,2,getString(R.string.import_csv))}
+  if(vm.data.value?.text("role")=="OWNER"){menu.add(0,10,2,getString(R.string.p0_them_cot));vm.data.value?.objects("fields")?.firstOrNull()?.let{menu.add(0,16,2,getString(R.string.field_primary,it.text("name")))};menu.add(0,14,2,getString(R.string.import_csv))}
   if(vm.drafts.value.isNotEmpty())menu.add(0,13,3,getString(R.string.p0_draft_count,vm.drafts.value.size))
  }
- override fun onOptionsItemSelected(item:MenuItem):Boolean{when(item.itemId){R.id.display_mode->chooseLayout();R.id.toggle_table_star->if(!vm.accessDenied.value)vm.toggleBaseStar(basePath);10->addField();11->saveView();12->updateView();13->drafts();15->showCollaborators(vm,basePath,(requireActivity() as androidx.appcompat.app.AppCompatActivity).supportActionBar?.title?.toString()?:baseName);14->pickCsv.launch(arrayOf("text/*","application/csv","application/vnd.ms-excel"));else->return super.onOptionsItemSelected(item)};return true}
+ override fun onOptionsItemSelected(item:MenuItem):Boolean{when(item.itemId){R.id.display_mode->chooseLayout();R.id.toggle_table_star->if(!vm.accessDenied.value)vm.toggleBaseStar(basePath);10->addField();16->vm.data.value?.objects("fields")?.firstOrNull()?.let{fieldMenu(it,primary=true)};11->saveView();12->updateView();13->drafts();15->showCollaborators(vm,basePath,(requireActivity() as androidx.appcompat.app.AppCompatActivity).supportActionBar?.title?.toString()?:baseName);14->pickCsv.launch(arrayOf("text/*","application/csv","application/vnd.ms-excel"));else->return super.onOptionsItemSelected(item)};return true}
  private fun drafts(){
   val items=vm.drafts.value;val labels=vm.draftLabels()
   dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.p0_ban_nhap_chua_gui_len_bang)).setItems(labels){_,index->
@@ -296,7 +296,7 @@ class DataTableFragment:Fragment(){
  private fun fieldName(id:String)=vm.data.value?.objects("fields")?.firstOrNull{it.text("id")==id}?.text("name")?:id
  private fun filters(){
   val items=conditions()
-  dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(if(vm.queryConfig.getAsJsonObject("filter")?.text("op")=="or")R.string.p0_filter_or else R.string.p0_loc_thoa_tat_ca_dieu_kien)).setItems(items.map{fieldName(it.text("fieldId"))+" "+operatorLabel(requireContext(),it.text("operator"))+" "+(it.get("value")?.let{v->cellLabel(requireContext(),null,v,vm.data.value?.objects("members").orEmpty())}?:"")}.toTypedArray()){_,index->
+  dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(if(vm.queryConfig.getAsJsonObject("filter")?.text("op")=="or")R.string.p0_filter_or else R.string.p0_loc_thoa_tat_ca_dieu_kien)).setItems(items.map{fieldName(it.text("fieldId"))+" "+operatorLabel(requireContext(),it.text("operator"))+" "+(it.get("value")?.let{v->cellLabel(requireContext(),vm.data.value?.objects("fields")?.firstOrNull{f->f.text("id")==it.text("fieldId")},v,vm.data.value?.objects("members").orEmpty())}?:"")}.toTypedArray()){_,index->
    dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.p0_xoa_dieu_kien_nay)).setPositiveButton(getString(R.string.p0_xoa)){_,_->vm.removeCondition(index)}.setNegativeButton(getString(R.string.p0_huy),null).show()
   }.setPositiveButton(getString(R.string.p0_them_dieu_kien)){_,_->if(items.size<10)chooseField(::chooseOperator) else tell(getString(R.string.p0_toi_da_10_dieu_kien_trong_giao_dien))}.setNeutralButton(getString(R.string.p0_xoa_tat_ca)){_,_->applyConditions(emptyList())}.setNegativeButton(getString(R.string.p0_dong),null).show()
  }
@@ -357,7 +357,8 @@ class DataTableFragment:Fragment(){
   }.setNegativeButton(getString(R.string.p0_huy),null).show()
  }
  /** Airtable-style field sheet: header with the field's type icon, then one row per action. */
- private fun fieldMenu(field:JsonObject){
+ /** [primary]: the record name field, which Airtable never hides, deletes or lets anything sit left of. */
+ private fun fieldMenu(field:JsonObject,primary:Boolean=false){
   val ctx=requireContext();val sheet=com.google.android.material.bottomsheet.BottomSheetDialog(ctx);val density=resources.displayMetrics.density
   val ink=com.google.android.material.color.MaterialColors.getColor(binding!!.root,com.google.android.material.R.attr.colorOnSurface)
   fun row(text:String,icon:Int,heading:Boolean=false,action:(()->Unit)?=null)=TextView(ctx).apply{
@@ -372,12 +373,12 @@ class DataTableFragment:Fragment(){
   list.addView(row(field.text("name"),fieldTypeIcon(field.text("type")),heading=true))
   list.addView(row(getString(R.string.field_edit),R.drawable.ic_field_customize){addField(field)})
   list.addView(row(getString(R.string.field_duplicate),R.drawable.ic_field_duplicate){vm.duplicateField(field)})
-  list.addView(row(getString(R.string.field_insert_left),R.drawable.ic_field_insert_left){addField(insertNextTo=field,right=false)})
+  if(!primary)list.addView(row(getString(R.string.field_insert_left),R.drawable.ic_field_insert_left){addField(insertNextTo=field,right=false)})
   list.addView(row(getString(R.string.field_insert_right),R.drawable.ic_field_insert_right){addField(insertNextTo=field,right=true)})
-  if(shown.size>1)list.addView(row(getString(R.string.field_hide),R.drawable.ic_field_hide){
+  if(!primary&&shown.size>1)list.addView(row(getString(R.string.field_hide),R.drawable.ic_field_hide){
    val fields=vm.data.value?.objects("fields").orEmpty();vm.selectColumns(fields,BooleanArray(fields.size){fields[it] in shown&&fields[it].text("id")!=field.text("id")});render()
   })
-  list.addView(row(getString(R.string.field_delete),R.drawable.ic_field_delete){
+  if(!primary)list.addView(row(getString(R.string.field_delete),R.drawable.ic_field_delete){
    dialog=MaterialAlertDialogBuilder(ctx).setTitle(getString(R.string.field_delete_title,field.text("name"))).setMessage(R.string.field_delete_message).setPositiveButton(R.string.field_delete){_,_->vm.deleteField(field)}.setNegativeButton(R.string.p0_huy,null).show()
   })
   sheet.setContentView(android.widget.ScrollView(ctx).apply{addView(list)});sheet.show()
