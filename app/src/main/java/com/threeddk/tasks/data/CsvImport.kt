@@ -25,8 +25,21 @@ fun parseCsv(text:String):List<List<String>>{
  return rows.filter{r->r.any{it.isNotBlank()}}
 }
 
-private val TRUE=setOf("true","1","yes","checked","x")
-private val BOOL=TRUE+setOf("false","0","no","unchecked","")
+private val TRUE=setOf("true","1","yes","checked","x","có","co","đúng","✓","✔")
+private val FALSE=setOf("false","0","no","unchecked","không","khong","sai")
+private val BOOL=TRUE+FALSE+setOf("")
+
+/** "1234.5", "1,234.5" (US) and "1.234,5" (VN) all read as 1234.5; anything else is not a number. */
+fun csvNumber(text:String):Double?{
+ val v=text.trim().replace(" ","")
+ val lastComma=v.lastIndexOf(',');val lastDot=v.lastIndexOf('.')
+ val normal=when{
+  lastComma>=0&&lastDot>=0->if(lastComma>lastDot)v.replace(".","").replace(',','.') else v.replace(",","")
+  lastComma>=0->if(v.count{it==','}==1&&v.length-lastComma-1!=3)v.replace(',','.') else v.replace(",","")
+  else->v
+ }
+ return normal.toDoubleOrNull()?.takeIf{it.isFinite()}
+}
 
 /** Picks a field type for a new column: CHECKBOX, SELECT (few repeated values) or TEXT. */
 fun inferFieldType(values:List<String>):Pair<String,List<String>>{
@@ -42,8 +55,9 @@ fun csvCell(field:JsonObject,raw:String):com.google.gson.JsonElement?{
  val v=raw.trim();if(v.isEmpty())return null
  return when(field["type"]?.asString){
   "TEXT"->com.google.gson.JsonPrimitive(v.take(5000))
-  "CHECKBOX"->com.google.gson.JsonPrimitive(v.lowercase() in TRUE)
-  "NUMBER"->v.replace(',','.').toDoubleOrNull()?.let{com.google.gson.JsonPrimitive(it)}
+  // Unknown words are flagged instead of silently becoming "unchecked".
+  "CHECKBOX"->when(v.lowercase()){in TRUE->com.google.gson.JsonPrimitive(true);in FALSE->com.google.gson.JsonPrimitive(false);else->null}
+  "NUMBER"->csvNumber(v)?.let{com.google.gson.JsonPrimitive(it)}
   "DATE"->v.takeIf{Regex("""\d{4}-\d{2}-\d{2}""").matches(it)}?.let{com.google.gson.JsonPrimitive(it)}
   "SELECT"->v.takeIf{field.getAsJsonArray("options")?.any{o->o.asString==v}==true}?.let{com.google.gson.JsonPrimitive(it)}
   "LONG_TEXT"->com.google.gson.JsonPrimitive(v.take(20000))
@@ -74,4 +88,14 @@ fun csvBatches(rows:List<JsonObject>,maxBytes:Int=24_000):List<List<JsonObject>>
   batches.last().add(row);size+=bytes
  }
  return batches
+}
+
+/** Repeated column names become "Tên 2", "Tên 3"… so each CSV column keeps its own field instead of collapsing into one. */
+fun csvHeaders(raw:List<String>):List<String>{
+ val used=mutableSetOf<String>()
+ return raw.map{name->
+  val base=name.trim();var candidate=base;var n=2
+  while(candidate.lowercase() in used){candidate="$base $n".take(100);n++}
+  used.add(candidate.lowercase());candidate
+ }
 }

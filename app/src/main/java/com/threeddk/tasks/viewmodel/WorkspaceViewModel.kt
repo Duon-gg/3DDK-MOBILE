@@ -376,7 +376,7 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
  fun importCsv(text:String){
   val rows=com.threeddk.tasks.data.parseCsv(text)
   if(rows.size<2||rows.size>501){error.value="File CSV cần dòng tiêu đề và từ 1 đến 500 dòng dữ liệu";return}
-  val header=rows[0].map{it.trim()};val body=rows.drop(1)
+  val header=com.threeddk.tasks.data.csvHeaders(rows[0]);val body=rows.drop(1)
   if(header.any{it.length !in 1..100}){error.value="Tên cột trong CSV phải từ 1 đến 100 ký tự";return}
   // Own job: run{} shares requestJob, which the table's re-query on resume cancels.
   viewModelScope.launch{try{

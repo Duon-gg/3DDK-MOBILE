@@ -4,6 +4,8 @@ import com.google.gson.JsonParser
 import com.threeddk.tasks.data.csvCell
 import com.threeddk.tasks.data.csvCellInvalid
 import com.threeddk.tasks.data.csvBatches
+import com.threeddk.tasks.data.csvNumber
+import com.threeddk.tasks.data.csvHeaders
 import com.threeddk.tasks.data.readLimited
 import com.threeddk.tasks.data.inferFieldType
 import com.threeddk.tasks.data.parseCsv
@@ -48,5 +50,19 @@ class CsvImportTest {
   assertEquals(500,batches.sumOf{it.size})
   batches.forEach{b->assert(b.sumOf{it.toString().toByteArray().size+12}<=24_000)}
   assertEquals(1,csvBatches(rows.take(3)).size)
+ }
+ @Test fun readsGroupedNumbersAndVietnameseBooleans(){
+  assertEquals(1234.5,csvNumber("1,234.5")!!,0.0)
+  assertEquals(1234.5,csvNumber("1.234,5")!!,0.0)
+  assertEquals(2.5,csvNumber("2,5")!!,0.0)
+  assertEquals(1234567.0,csvNumber("1,234,567")!!,0.0)
+  assertNull(csvNumber("abc"))
+  val box=JsonParser.parseString("""{"type":"CHECKBOX"}""").asJsonObject
+  assertEquals(true,csvCell(box,"Có")!!.asBoolean)
+  assertEquals(false,csvCell(box,"không")!!.asBoolean)
+  assertEquals(true,csvCellInvalid(box,"đang làm"))
+ }
+ @Test fun repeatedHeadersGetNumbered(){
+  assertEquals(listOf("Tên","Ghi chú","tên 2","Ghi chú 2","Tên 3"),csvHeaders(listOf("Tên","Ghi chú","tên"," Ghi chú ","Tên")))
  }
 }

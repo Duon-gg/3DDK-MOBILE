@@ -48,9 +48,6 @@ class AppViewModel(app:Application):AndroidViewModel(app) {
  var pendingTaskId:String?=null
  private var observer:Job?=null
  val me get()=rows.value.firstOrNull{it.kind=="me"}?.let{repo.gson.fromJson(it.json,Member::class.java)}
- inline fun <reified T> records(kind:String)=rows.value.filter{it.kind==kind}.map{modelJson.fromJson(it.json,T::class.java)}
- fun task(id:String)=records<Task>("tasks").firstOrNull{it.id==id}
- fun history(id:String)=rows.value.firstOrNull{it.kind=="history"&&it.id==id}?.let{repo.gson.fromJson(it.json,History::class.java)}?:History()
  init { if(repo.configured) execute{restore()} }
  fun execute(block:suspend()->Unit) {
   viewModelScope.launch {
@@ -150,65 +147,22 @@ class AppViewModel(app:Application):AndroidViewModel(app) {
   try{CredentialManager.create(getApplication()).clearCredentialState(ClearCredentialStateRequest())}
   catch(e:ClearCredentialException){message.value=getApplication<Application>().getString(R.string.auth_logout_provider_warning)}
  }
- fun detail(id:String)=execute{repo.detail(id)}
- fun mutation(method:String,path:String,body:JsonObject,done:()->Unit={})=execute{
-  try{repo.mutate(method,path,body)}catch(e:ApiException){if(e.code=="CONFLICT")runCatching{repo.refresh()};throw e}
-  runCatching{repo.refresh()}.onFailure{syncNote.value="Đã lưu thay đổi • Chưa tải lại được"}
-  done()
- }
- fun saveDraft(task:Task,description:String,link:String)=viewModelScope.launch {
-  try{repo.saveDraft(task,description,link)}catch(e:Exception){message.value="Chưa lưu được bản nháp. Hãy thử lưu lại."}
- }
- fun submit(task:Task)=execute{
-  repo.submit(task);repo.detail(task.id);message.value="Đã nộp kết quả, chờ nhóm trưởng duyệt."
- }
-
- fun overviewRows(kind:String,filter:Int,search:String):List<Row>{
-  val members=records<Member>("members").associateBy{it.uid}
-  val rows=when(kind){
-   "members"->members.values.sortedBy{it.displayName}.map{Row(it.uid,it.displayName,(if(it.role=="LEADER")"Nhóm trưởng" else "Thành viên")+(if(it.active)"" else " • Đã ngừng quyền"),it.avatarUrl)}
-   "notifications"->records<Notice>("notifications").sortedByDescending{it.createdAt}.map{Row(it.id,(if(it.read)"" else "● ")+(eventLabels[it.kind]?:it.kind),formattedTime(it.createdAt))}
-   else->if(filter==7)drafts.value.map{d->Row(d.taskId,task(d.taskId)?.title?:"Bản nháp công việc đã thay đổi",d.description.take(120))} else records<Task>("tasks").filter{t->t.archivedAt==null&&t.title.contains(search,true)&&when(val selected=filter){
-    1->repo.uid in t.assigneeIds;2->t.overdue();in 3..6->t.status==statusLabels.keys.toList()[selected-3];else->true
-   }}.sortedBy{it.dueAt}.map{t->Row(t.id,t.title,"${statusLabels[t.status]} • Ưu tiên ${priorityLabels[t.priority]}\n${if(t.overdue())"Quá hạn: " else "Hạn: "}${formattedTime(t.dueAt)}\nĐại diện: ${members[t.representativeId]?.displayName?:t.representativeId} • ${t.assigneeIds.size} người",members[t.representativeId]?.avatarUrl?:"",t.overdue())}
-  }
-  return rows
- }
 
 
- val currentUid get()=repo.uid.orEmpty()
+
  val accountEmail get()=me?.email?:repo.auth?.currentUser?.email
  val accountName get()=me?.displayName?.takeIf{it.isNotBlank()}?:repo.auth?.currentUser?.displayName
  val googleAvatar get()=accountAvatar(repo.auth?.currentUser,null)
  fun avatar(fallback:String?=me?.avatarUrl)=accountAvatar(repo.auth?.currentUser,fallback)
  fun savedEmail()=repo.savedEmail()
- fun loadInvites(done:(List<Invite>)->Unit)=execute{done(repo.invites())}
  fun logoutDraftCount(done:(Int)->Unit)=execute{done(repo.uid?.let{repo.dao.draftCount(it)}?:0)}
+ fun mutation(method:String,path:String,body:JsonObject,done:()->Unit={})=execute{
+  try{repo.mutate(method,path,body)}catch(e:ApiException){if(e.code=="CONFLICT")runCatching{repo.refresh()};throw e}
+  runCatching{repo.refresh()}.onFailure{syncNote.value="Đã lưu thay đổi • Chưa tải lại được"}
+  done()
+ }
  fun updateProfile(name:String,avatar:String,done:()->Unit){
   if(name.trim().isBlank()){message.value="Nhập tên hiển thị.";return}
   mutation("PATCH","me",repo.body("displayName" to name.trim(),"avatarUrl" to avatar)){message.value="Đã lưu hồ sơ.";done()}
  }
- fun setMemberActive(id:String,active:Boolean)=mutation("PATCH","members/$id",repo.body("active" to active))
- fun inviteEmail(email:String)=mutation("POST","invites",repo.body("email" to email.trim()))
- fun revokeInvite(email:String)=mutation("DELETE","invites",repo.body("email" to email))
- fun markNoticeRead(id:String)=mutation("PATCH","notifications/$id",repo.body())
- fun loadDraft(id:String,done:(Draft?)->Unit)=execute{done(repo.draft(id))}
- fun submitResult(task:Task,description:String,link:String,done:()->Unit)=execute{
-  submissionError(description,link)?.let{message.value=it;return@execute}
-  repo.saveDraft(task,description,link);repo.submit(task);repo.detail(task.id)
-  message.value="Đã nộp kết quả, chờ duyệt.";done()
- }
- fun taskAction(id:String,name:String,extra:Array<out Pair<String,Any?>>,done:()->Unit){
-  val task=task(id)?:return
-  mutation("POST","tasks/$id/$name",repo.body("expectedVersion" to task.version,*extra)){if(name!="archive")detail(id);done()}
- }
-
-
- fun assignableMembers()=records<Member>("members").filter{it.active}
- fun selectedMembers(ids:Set<String>)=records<Member>("members").filter{it.uid in ids}
- fun saveTask(id:String,payload:JsonObject,done:()->Unit){
-  if(me?.role!="LEADER"){message.value="Bạn không thể sửa công việc này.";return}
-  mutation(if(id.isEmpty())"POST" else "PATCH",if(id.isEmpty())"tasks" else "tasks/$id",payload,done)
- }
-
 }

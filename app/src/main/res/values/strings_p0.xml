@@ -6,7 +6,6 @@
  <string name="p0_tao_khong_gian">Tạo không gian</string>
  <string name="p0_tao_co_so_du_lieu">Tạo cơ sở dữ liệu</string>
  <string name="p0_tao_bang">Tạo bảng</string>
- <string name="p0_mo_cac_bang_du_lieu">Mở các bảng dữ liệu</string>
  <string name="p0_mo_bang_nhap_va_chinh_sua_du_lieu">Mở bảng • Nhập và chỉnh sửa dữ liệu</string>
  <string name="p0_chua_co_du_lieu_da_tai_ket_noi">Chưa có dữ liệu đã tải. Kết nối mạng và bấm Làm mới.</string>
  <string name="p0_chao_mung_den_3ddk_tao_khong_gian_dau">Chào mừng đến 3DDK!\nTạo không gian đầu tiên để bắt đầu.</string>
@@ -51,7 +50,6 @@
  <string name="p0_chua_co_du_lieu_tren_thiet_bi_ket">Chưa có dữ liệu trên thiết bị. Kết nối mạng và bấm Làm mới.</string>
  <string name="p0_khong_co_dong_phu_hop_thu_doi_tim">Không có dòng phù hợp. Thử đổi tìm kiếm hoặc xóa bộ lọc.</string>
  <string name="p0_chua_co_dong_trong_du_lieu_da_tai">Chưa có dòng trong dữ liệu đã tải. Bấm Thêm dòng để bắt đầu.</string>
- <string name="p0_tat_ca_chua_luu_che_do_xem">Dạng lưới</string>
  <string name="p0_luu_thanh_che_do_xem_moi">Lưu thành chế độ xem mới</string>
  <string name="p0_luu_thay_doi_che_do_xem">Lưu thay đổi chế độ xem</string>
  <string name="p0_them_cot">Thêm cột</string>
@@ -116,7 +114,6 @@
  <string name="p0_tao_dong">Tạo dòng</string>
  <string name="p0_sua_dong">Sửa dòng</string>
  <string name="p0_50_thay_doi_gan_nhat">50 thay đổi gần nhất</string>
- <string name="p0_chon_che_do_xem_da_luu">Chọn chế độ xem đã lưu</string>
  <string name="p0_tim_trong_bang">Tìm trong bảng</string>
  <string name="p0_loc">Lọc</string>
  <string name="p0_sap_xep">Sắp xếp</string>
@@ -128,14 +125,10 @@
  <string name="p0_tim_thanh_vien_theo_ten">Tìm thành viên theo tên</string>
  <string name="p0_khong_tim_thay_thanh_vien_phu_hop">Không tìm thấy thành viên phù hợp.</string>
  <string name="p0_xem_phien_ban_moi">Xem phiên bản mới</string>
- <string name="p0_luu_len_bang">Lưu lên bảng</string>
  <string name="p0_filter_count">Lọc (%1$d)</string>
  <string name="p0_sort_count">Sắp xếp (%1$d)</string>
  <string name="p0_draft_count">Bản nháp trên máy (%1$d)</string>
  <string name="p0_new_row_number">Dòng mới %1$d</string>
- <string name="p0_view_label">%1$s • %2$s</string>
- <string name="p0_personal_view">Cá nhân</string>
- <string name="p0_shared_view">Chung</string>
  <string name="p0_access_revoked">Bạn không còn quyền xem bảng này. Nháp chưa gửi vẫn được giữ trên thiết bị.</string>
  <string name="p0_old_option">Lựa chọn cũ (hãy chọn lại): %1$s</string>
  <string name="p0_conflict_title">Xung đột %1$d/%2$d: %3$s</string>
