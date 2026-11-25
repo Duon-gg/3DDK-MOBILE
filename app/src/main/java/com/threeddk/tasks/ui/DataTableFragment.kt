@@ -68,7 +68,13 @@ class DataTableFragment:Fragment(){
    }
   }
   adapter=GridAdapter(::tapRow);adapter.longClick={id->if(vm.canEditRecords()&&vm.supports("recordTrash"))toggleSelect(id)};b.grid.layoutManager=LinearLayoutManager(requireContext());b.grid.adapter=adapter
-  cardAdapter=RecordCardAdapter(::edit);b.cards.layoutManager=LinearLayoutManager(requireContext());b.cards.adapter=cardAdapter
+  // Cards share the grid's long-press multi-select (Kanban keeps long-press for dragging cards).
+  cardAdapter=RecordCardAdapter(::tapRow){card,id->
+   val picked=id in selected
+   card.isActivated=picked;card.alpha=if(selected.isNotEmpty()&&!picked)0.6f else 1f
+   androidx.core.view.ViewCompat.setStateDescription(card,if(picked)getString(R.string.rows_selected_state) else null)
+   card.setOnLongClickListener{if(vm.canEditRecords()&&vm.supports("recordTrash")){toggleSelect(id);true}else false}
+  };b.cards.layoutManager=LinearLayoutManager(requireContext());b.cards.adapter=cardAdapter
   kanbanAdapter=com.threeddk.tasks.adapter.KanbanAdapter(::edit,::moveCard,::chooseCardColumn);b.kanban.layoutManager=LinearLayoutManager(requireContext(),LinearLayoutManager.HORIZONTAL,false);b.kanban.adapter=kanbanAdapter
   layoutMode=prefs.getString("$path/layout","GRID")!!;groupFieldId=prefs.getString("$path/group",null);kanbanFieldId=prefs.getString("$path/kanban",null)
   b.group.setOnClickListener{chooseGroup()}
@@ -276,7 +282,7 @@ class DataTableFragment:Fragment(){
  private fun tapRow(id:String){if(selected.isNotEmpty())toggleSelect(id) else edit(id)}
  private fun toggleSelect(id:String){
   if(!selected.remove(id))selected.add(id)
-  adapter.selected=selected.toSet();adapter.notifyDataSetChanged()
+  adapter.selected=selected.toSet();adapter.notifyDataSetChanged();cardAdapter.notifyDataSetChanged()
   if(selected.isEmpty()){selectionMode?.finish();return}
   val mode=selectionMode?:(requireActivity() as androidx.appcompat.app.AppCompatActivity).startSupportActionMode(object:androidx.appcompat.view.ActionMode.Callback{
    override fun onCreateActionMode(m:androidx.appcompat.view.ActionMode,menu:Menu):Boolean{menu.add(0,1,0,R.string.rows_delete).setIcon(R.drawable.ic_field_delete).setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);return true}
@@ -287,7 +293,7 @@ class DataTableFragment:Fragment(){
      .setNegativeButton(R.string.p0_huy,null).setPositiveButton(R.string.rows_delete){_,_->vm.deleteRecords(ids){tell(getString(R.string.rows_deleted,ids.size))};m.finish()}.show()
     return true
    }
-   override fun onDestroyActionMode(m:androidx.appcompat.view.ActionMode){selectionMode=null;selected.clear();adapter.selected=emptySet();adapter.notifyDataSetChanged()}
+   override fun onDestroyActionMode(m:androidx.appcompat.view.ActionMode){selectionMode=null;selected.clear();adapter.selected=emptySet();adapter.notifyDataSetChanged();cardAdapter.notifyDataSetChanged()}
   }).also{selectionMode=it}
   mode?.title=getString(R.string.rows_selected,selected.size)
  }
