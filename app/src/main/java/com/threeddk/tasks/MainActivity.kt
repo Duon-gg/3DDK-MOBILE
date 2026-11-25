@@ -49,7 +49,10 @@ class MainActivity:AppCompatActivity(){
   }}
  }
  private fun updateNavigation(){binding.toolbar.isVisible=nav.currentDestination?.id !in setOf(R.id.workspaces,R.id.auth);binding.bottomNav.isVisible=vm.session.value=="READY"&&nav.currentDestination?.id ==R.id.invitations}
- override fun onNewIntent(intent:Intent){super.onNewIntent(intent);setIntent(intent);receiveIntent(intent);openPending()}
+ override fun onNewIntent(intent:Intent){super.onNewIntent(intent);setIntent(intent);receiveIntent(intent);openPending()
+  // Invite link opened while another screen is up: go back to home, which asks to join on resume.
+  if(intent.data?.scheme=="threeddk"&&vm.session.value=="READY")nav.popBackStack(R.id.workspaces,false)
+ }
  private fun receiveIntent(intent:Intent){intent.getStringExtra("taskId")?.let{if(runCatching{java.util.UUID.fromString(it)}.isSuccess)vm.pendingTaskId=it};intent.removeExtra("taskId")}
  private fun openPending(){if(vm.session.value=="READY"&&vm.pendingTaskId!=null){vm.pendingTaskId=null;vm.message.value="Thông báo này thuộc phiên bản công việc trước."}}
  override fun onSupportNavigateUp()=nav.navigateUp()||super.onSupportNavigateUp()

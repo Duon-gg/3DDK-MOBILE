@@ -248,12 +248,13 @@ class DataTableFragment:Fragment(){
    menu.add(0,R.id.toggle_table_star,1,getString(if(starred)R.string.home_unstar else R.string.home_star))
   }
   menu.add(0,R.id.display_mode,0,getString(R.string.layout_choose)).setIcon(if(layoutMode=="GRID")R.drawable.ic_table else R.drawable.ic_cards).setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
-  if(basePath.isNotBlank())menu.findItem(R.id.display_mode).icon?.mutate()?.setTint(com.threeddk.tasks.adapter.RowAdapter.tileFor(basePath).second)
+  if(basePath.isNotBlank()&&vm.data.value?.text("role")=="OWNER"&&vm.supports("inviteLinks"))menu.add(0,15,0,getString(R.string.collab_title)).setIcon(R.drawable.ic_person_add).setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+  if(basePath.isNotBlank())listOfNotNull(menu.findItem(R.id.display_mode),menu.findItem(15)).forEach{it.icon?.mutate()?.setTint(com.threeddk.tasks.adapter.RowAdapter.tileFor(basePath).second)}
   if(vm.supports("savedViews")){menu.add(0,11,0,getString(R.string.p0_luu_thanh_che_do_xem_moi));if(editableView()!=null)menu.add(0,12,1,getString(R.string.p0_luu_thay_doi_che_do_xem))}
   if(vm.data.value?.text("role")=="OWNER"){menu.add(0,10,2,getString(R.string.p0_them_cot));menu.add(0,14,2,getString(R.string.import_csv))}
   if(vm.drafts.value.isNotEmpty())menu.add(0,13,3,getString(R.string.p0_draft_count,vm.drafts.value.size))
  }
- override fun onOptionsItemSelected(item:MenuItem):Boolean{when(item.itemId){R.id.display_mode->chooseLayout();R.id.toggle_table_star->if(!vm.accessDenied.value)vm.toggleBaseStar(basePath);10->addField();11->saveView();12->updateView();13->drafts();14->pickCsv.launch(arrayOf("text/*","application/csv","application/vnd.ms-excel"));else->return super.onOptionsItemSelected(item)};return true}
+ override fun onOptionsItemSelected(item:MenuItem):Boolean{when(item.itemId){R.id.display_mode->chooseLayout();R.id.toggle_table_star->if(!vm.accessDenied.value)vm.toggleBaseStar(basePath);10->addField();11->saveView();12->updateView();13->drafts();15->showCollaborators(vm,basePath,(requireActivity() as androidx.appcompat.app.AppCompatActivity).supportActionBar?.title?.toString()?:baseName);14->pickCsv.launch(arrayOf("text/*","application/csv","application/vnd.ms-excel"));else->return super.onOptionsItemSelected(item)};return true}
  private fun drafts(){
   val items=vm.drafts.value;val labels=vm.draftLabels()
   dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(getString(R.string.p0_ban_nhap_chua_gui_len_bang)).setItems(labels){_,index->
