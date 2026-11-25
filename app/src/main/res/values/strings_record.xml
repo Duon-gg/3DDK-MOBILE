@@ -82,4 +82,9 @@
     <string name="comments_hint">Viết bình luận, gõ @ để nhắc tên</string>
     <string name="comments_send">Gửi</string>
     <string name="comments_mention">Nhắc tên</string>
+    <string name="comments_edit">Sửa bình luận</string>
+    <string name="comments_delete">Xoá bình luận</string>
+    <string name="comments_delete_title">Xoá bình luận này?</string>
+    <string name="comments_edited">(đã sửa)</string>
+    <string name="comments_actions">Bình luận của %1$s, chạm để sửa hoặc xoá</string>
 </resources>

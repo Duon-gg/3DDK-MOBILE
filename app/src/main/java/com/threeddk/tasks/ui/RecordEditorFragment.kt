@@ -80,7 +80,8 @@ class RecordEditorFragment:Fragment(){
   val members=vm.table.value?.objects("members").orEmpty()
   items.forEach{c->
    val time=runCatching{java.time.OffsetDateTime.parse(c.text("createdAt")).atZoneSameInstant(java.time.ZoneId.systemDefault()).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))}.getOrDefault("")
-   val head=c.text("displayName").ifBlank{c.text("uid")}+"  "+time
+   val edited=c.get("editedAt")?.takeIf{!it.isJsonNull}!=null
+   val head=c.text("displayName").ifBlank{c.text("uid")}+"  "+time+if(edited)"  "+getString(R.string.comments_edited) else ""
    val text=android.text.SpannableStringBuilder(head+"\n"+c.text("body"))
    text.setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD),0,c.text("displayName").ifBlank{c.text("uid")}.length,0)
    // Highlight @mentions the way Airtable does.
@@ -89,8 +90,36 @@ class RecordEditorFragment:Fragment(){
     var at=text.indexOf(name,head.length)
     while(name.length>1&&at>=0){text.setSpan(android.text.style.ForegroundColorSpan(requireContext().getColor(R.color.mobile_primary)),at,at+name.length,0);at=text.indexOf(name,at+name.length)}
    }
-   b.comments.addView(TextView(requireContext()).apply{this.text=text;textSize=15f;setPadding(0,12,0,12);setTextIsSelectable(true)})
+   val actions=listOfNotNull(R.string.comments_edit.takeIf{vm.canEditComment(c)},R.string.comments_delete.takeIf{vm.canDeleteComment(c)})
+   b.comments.addView(TextView(requireContext()).apply{
+    this.text=text;textSize=15f;setPadding(0,12,0,12)
+    // Own comments open Sửa/Xoá on tap (Airtable's comment menu); the rest stay selectable for copying.
+    if(actions.isEmpty())setTextIsSelectable(true) else{
+     background=requireContext().obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackground)).run{getDrawable(0).also{recycle()}}
+     contentDescription=getString(R.string.comments_actions,c.text("displayName"))+". "+text
+     setOnClickListener{commentMenu(c,actions)}
+    }
+   })
   }
+ }
+ private fun commentMenu(c:JsonObject,actions:List<Int>){
+  dialog=MaterialAlertDialogBuilder(requireContext()).setItems(actions.map{getString(it)}.toTypedArray()){_,i->
+   if(actions[i]==R.string.comments_delete)dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.comments_delete_title).setMessage(c.text("body"))
+    .setNegativeButton(R.string.p0_huy,null).setPositiveButton(R.string.comments_delete){_,_->vm.changeComment(c.text("id"),null,emptyList()){}}.show()
+   else editComment(c)
+  }.show()
+ }
+ private fun editComment(c:JsonObject){
+  val input=android.widget.EditText(requireContext()).apply{setText(c.text("body"));setSelection(text.length);minLines=2;maxLines=6
+   filters=arrayOf(android.text.InputFilter.LengthFilter(2000));setPadding(48,32,48,32)}
+  dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.comments_edit).setView(input).setNegativeButton(R.string.p0_huy,null)
+   .setPositiveButton(R.string.p0_luu){_,_->
+    val text=input.text.toString()
+    // Keep earlier mentions whose @name is still in the text.
+    val members=vm.table.value?.objects("members").orEmpty()
+    val keep=c.getAsJsonArray("mentions")?.map{it.asString}.orEmpty().filter{uid->members.firstOrNull{it.text("uid")==uid}?.text("displayName")?.let{"@$it" in text}==true}
+    if(text.isNotBlank())vm.changeComment(c.text("id"),text,keep){}
+   }.show()
  }
  private fun switchRow(id:String?){
   if(id==null)return
