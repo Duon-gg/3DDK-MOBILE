@@ -1,3 +1,4 @@
 <resources>
  <item name="display_mode" type="id"/>
+    <item name="kanban_move_action" type="id"/>
 </resources>

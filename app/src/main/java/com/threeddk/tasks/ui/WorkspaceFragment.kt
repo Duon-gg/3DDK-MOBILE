@@ -226,7 +226,7 @@ class WorkspaceFragment:Fragment(){
       }
       b.root.addView(button)
      }
-     action("Chia sẻ cơ sở dữ liệu",R.drawable.ic_shared_outline){baseSharing(id)}
+     action(getString(R.string.collab_title),R.drawable.ic_shared_outline){showCollaborators(vm,id,base.name)}
      action("Di chuyển",R.drawable.ic_workspace_outline){moveBase(id,current)}
      action("Nhân bản",R.drawable.ic_database_outline){duplicateBase(id,current)}
      action("Xóa vào thùng rác",R.drawable.ic_close){confirmBaseAction("Xóa ${base.name}?","Dữ liệu sẽ được giữ trong Thùng rác để chủ không gian khôi phục. Người cộng tác không thể mở trong thời gian này.","DELETE",id,current)}
@@ -288,28 +288,6 @@ class WorkspaceFragment:Fragment(){
   if(rows.isEmpty())builder.setMessage(R.string.home_shared_empty) else builder.setItems(rows.map{it.second}.toTypedArray()){_,index->findNavController().navigate(R.id.workspaceBrowser,bundleOf("path" to rows[index].first))}
   dialog=builder.show()
  }}}
- private fun baseSharing(id:String){vm.readResource("$id/sharing"){data->if(binding!=null){
-  val members=data.objects("members");val invites=data.objects("invites")
-  val labels=listOf("Mời qua email")+members.map{it.text("email")+" · "+roleLabel(requireContext(),it.text("role"))}+invites.map{"Đang chờ: "+it.text("email")}
-  dialog=MaterialAlertDialogBuilder(requireContext()).setTitle("Chia sẻ riêng cơ sở dữ liệu").setItems(labels.toTypedArray()){_,index->
-   when{
-    index==0->inviteBase(id,data)
-    index<=members.size->{val member=members[index-1];dialog=MaterialAlertDialogBuilder(requireContext()).setTitle(member.text("email")).setItems(arrayOf("Có thể chỉnh sửa","Chỉ xem","Gỡ quyền chia sẻ riêng")){_,which->
-     confirmBaseAction("Cập nhật quyền?","Quyền được cấp từ không gian (nếu có) vẫn giữ nguyên.",if(which==2)"DELETE" else "PATCH","$id/members/${member.text("uid")}",data,JsonObject().apply{if(which<2)addProperty("role",if(which==0)"EDITOR" else "VIEWER")})
-    }.show()}
-    else->{val invite=invites[index-members.size-1];confirmBaseAction("Thu hồi lời mời?",invite.text("email"),"DELETE","$id/invites/${invite.text("id")}",data)}
-   }
-  }.setNegativeButton(R.string.p0_dong,null).show()
- }}}
- private fun inviteBase(id:String,base:JsonObject){
-  val b=DialogInputBinding.inflate(layoutInflater);b.valueBox.hint=getString(R.string.p0_email_duoc_moi);b.value.inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS;b.extraBox.isVisible=false
-  b.choice.adapter=ArrayAdapter(requireContext(),android.R.layout.simple_spinner_dropdown_item,listOf("Có thể chỉnh sửa","Chỉ xem"))
-  val d=MaterialAlertDialogBuilder(requireContext()).setTitle("Mời vào cơ sở dữ liệu").setMessage("Người nhận mở mục Lời mời cơ sở dữ liệu bằng đúng email này. Không cấp quyền vào các cơ sở dữ liệu khác.").setView(b.root).setNegativeButton(R.string.p0_huy,null).setPositiveButton(R.string.p0_moi,null).create();dialog=d
-  d.setOnShowListener{d.getButton(-1).setOnClickListener{
-   val email=b.value.text.toString().trim();if(!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()){b.valueBox.error=getString(R.string.p0_email_chua_hop_le);return@setOnClickListener}
-   vm.inviteMember(id,email,b.choice.selectedItemPosition==0,base){if(binding!=null)d.dismiss()}
-  }};d.show()
- }
  private fun create(){
   val b=DialogInputBinding.inflate(layoutInflater);b.valueBox.hint=getString(R.string.p0_ten);b.extraBox.isVisible=false
   val canUseTemplate=path.startsWith("bases/")&&vm.data.value?.text("role")=="OWNER"
@@ -328,6 +306,7 @@ class WorkspaceFragment:Fragment(){
   }};d.show()
  }
  override fun onCreateOptionsMenu(menu:Menu,inflater:MenuInflater){
+  if(path=="invitations"&&vm.supports("inviteLinks"))menu.add(0,43,0,R.string.collab_join_by_link)
   if(mode.isNotEmpty())return
   if(path.startsWith("workspaces/")&&vm.data.value!=null){
    if(vm.data.value?.text("role") in listOf("OWNER","EDITOR"))menu.add(0,41,1,R.string.p0_tao_co_so_du_lieu)
@@ -342,6 +321,7 @@ class WorkspaceFragment:Fragment(){
   if(path.startsWith("workspaces/")&&vm.data.value!=null){menu.add(0,1,0,getString(R.string.p0_thanh_vien));if(vm.data.value?.text("role")=="OWNER"){menu.add(0,2,1,getString(R.string.p0_moi_thanh_vien));menu.add(0,3,2,getString(R.string.p0_loi_moi_da_gui))}}
  }
  override fun onOptionsItemSelected(item:MenuItem):Boolean{
+  if(item.itemId==43){joinByLinkPrompt();return true}
   if(item.itemId==41){create();return true}
   if(item.itemId==42){vm.refresh();return true}
   if(item.itemId==40){vm.data.value?.let{workspaceActions(path,it)};return true}
@@ -441,6 +421,25 @@ class WorkspaceFragment:Fragment(){
   }};d.show()
  }
  override fun onSaveInstanceState(outState:Bundle){outState.putBoolean("homeSearchExpanded",binding?.searchBox?.isVisible==true);outState.putInt("homeTab",homeTab);super.onSaveInstanceState(outState)}
+ private fun openJoined(base:String){if(binding!=null)findNavController().navigate(R.id.workspaceBrowser,bundleOf("path" to base))}
+ /** Paste a link (or just its code) from chat when the app did not open from the link itself. */
+ private fun joinByLinkPrompt(){
+  val b=DialogInputBinding.inflate(layoutInflater);b.valueBox.hint=getString(R.string.collab_paste_link);b.choice.isVisible=false;b.extraBox.isVisible=false
+  val d=MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.collab_join_by_link).setView(b.root).setPositiveButton(R.string.collab_join,null).setNegativeButton(R.string.p0_huy,null).create();dialog=d
+  d.setOnShowListener{d.getButton(-1).setOnClickListener{
+   val token=inviteToken(b.value.text.toString())
+   if(token==null){b.valueBox.error=getString(R.string.collab_link_invalid);return@setOnClickListener}
+   d.dismiss();joinByInvite(vm,token,::openJoined)
+  }};d.show()
+ }
+ // A tapped threeddk://join/{token} link lands here (the home screen is the app's start destination).
+ override fun onResume(){
+  super.onResume()
+  val intent=requireActivity().intent;val data=intent?.data?:return
+  if(data.scheme!="threeddk"||data.host!="join")return
+  intent.data=null
+  inviteToken(data.path.orEmpty())?.let{joinByInvite(vm,it,::openJoined)}
+ }
  override fun onDestroyView(){baseSheet?.dismiss();baseSheet=null;dialog?.dismiss();dialog=null;binding?.list?.adapter=null;binding=null;super.onDestroyView()}
 }
 fun roleLabel(context:android.content.Context,role:String)=context.getString(when(role){"OWNER"->R.string.p0_workspace_owner;"EDITOR"->R.string.p0_co_the_chinh_sua;else->R.string.p0_chi_xem})
