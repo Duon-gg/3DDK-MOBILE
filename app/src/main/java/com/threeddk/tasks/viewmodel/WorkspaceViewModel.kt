@@ -235,6 +235,14 @@ class WorkspaceViewModel(app:Application):AndroidViewModel(app) {
  fun sharedSpaces()=data.value?.objects("items").orEmpty().filter{it.text("role") in listOf("EDITOR","VIEWER")}
  fun moveTargets(workspaces:JsonObject,base:JsonObject)=workspaces.objects("items").filter{it.text("role")=="OWNER"&&it.text("id")!=base.text("workspaceId")}
  fun baseForActions(id:String,workspace:String)=recentBases.value.firstOrNull{it.path==id}?:data.value?.objects("bases")?.firstOrNull{"bases/"+it.text("id")==id}?.let{WorkspaceRepository.RecentBase(id,it.text("name"),0,workspaceId=workspace.substringAfter('/'))}
+ /** Base invite link: role creates a new link (replacing the old one), null turns it off. */
+ fun setInviteLink(base:String,role:String?,done:(JsonObject)->Unit){
+  mutate(if(role==null)"DELETE" else "POST","$base/invite-link",JsonObject().apply{role?.let{addProperty("role",it)}},done)
+ }
+ fun previewInvite(token:String,done:(JsonObject)->Unit)=readNow("invite-links/$token",done)
+ /** Read without the busy gate, so a sheet can refresh right after its own mutation; errors go to [error]. */
+ fun readNow(resource:String,done:(JsonObject)->Unit){viewModelScope.launch{try{done(repo.refresh(resource))}catch(e:CancellationException){throw e}catch(e:Exception){error.value=friendlyError(e)}}}
+ fun acceptInvite(token:String,done:(JsonObject)->Unit)=mutate("POST","invite-links/$token/accept",JsonObject(),done)
  fun versionedMutation(method:String,target:String,base:JsonObject,extra:JsonObject=JsonObject(),done:(JsonObject)->Unit={}){
   mutate(method,target,extra.deepCopy().apply{add("expectedVersion",base["version"])},done)
  }
