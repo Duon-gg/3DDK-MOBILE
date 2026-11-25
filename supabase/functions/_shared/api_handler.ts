@@ -5,7 +5,9 @@ type Dependencies={
  verifyToken:(token:string)=>Promise<Actor>;
  rpc:(name:string,body:Record<string,unknown>)=>Promise<unknown>;
  dispatchLegacy?:()=>void;
+ sendMail?:(mail:InviteMail)=>void;
 };
+export type InviteMail={to:string;role:string;base:string;inviter:string};
 const maxBodyBytes=32768;
 
 async function jsonBody(request:Request):Promise<Record<string,unknown>> {
@@ -49,6 +51,12 @@ export function createApiHandler(dependencies:Dependencies) {
    });
    // v1 writes and v2 comment writes (which may queue @mention pushes) wake the dispatcher right away.
    if(request.method!=='GET'&&(match[1]==='1'||/^\/tables\/[^/]+\/records\/[^/]+\/comments(\/[^/]+)?$/.test(match[2]))) dependencies.dispatchLegacy?.();
+   // A base invite carries the email to send; the client never sees it.
+   if(match[1]==='2'&&request.method==='POST'&&/^\/bases\/[^/]+\/invites$/.test(match[2])&&result&&typeof result==='object'&&'mail' in result){
+    const {mail,...rest}=result as {mail:InviteMail}&Record<string,unknown>;
+    dependencies.sendMail?.(mail);
+    return Response.json(rest,{headers:{'X-Request-Id':requestId,'Cache-Control':'no-store'}});
+   }
    return Response.json(result,{headers:{'X-Request-Id':requestId,'Cache-Control':'no-store'}});
   } catch(error) {
    const response=failure(error,requestId);
